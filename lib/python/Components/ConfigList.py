@@ -1,10 +1,9 @@
 from HTMLComponent import HTMLComponent
 from GUIComponent import GUIComponent
-from config import KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END, KEY_0, KEY_DELETE, KEY_BACKSPACE, KEY_OK, KEY_TOGGLEOW, KEY_ASCII, KEY_TIMEOUT, KEY_NUMBERS, ConfigElement, ConfigText, ConfigPassword
+from config import KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END, KEY_0, KEY_DELETE, KEY_BACKSPACE, KEY_OK, KEY_TOGGLEOW, KEY_ASCII, KEY_TIMEOUT, KEY_NUMBERS, ConfigElement, ConfigText, ConfigPassword, config
 from Components.ActionMap import NumberActionMap, ActionMap
 from enigma import eListbox, eListboxPythonConfigContent, eRCInput, eTimer
 from Screens.MessageBox import MessageBox
-from Screens.ChoiceBox import ChoiceBox
 import skin
 
 class ConfigList(HTMLComponent, GUIComponent, object):
@@ -44,14 +43,14 @@ class ConfigList(HTMLComponent, GUIComponent, object):
 
 	def getCurrent(self):
 		return self.l.getCurrentSelection()
-
+	
 	def getCurrentIndex(self):
 		return self.l.getCurrentSelectionIndex()
-
+	
 	def setCurrentIndex(self, index):
 		if self.instance is not None:
 			self.instance.moveSelectionTo(index)
-
+	
 	def invalidateCurrent(self):
 		self.l.invalidateEntry(self.l.getCurrentSelectionIndex())
 
@@ -62,12 +61,12 @@ class ConfigList(HTMLComponent, GUIComponent, object):
 			self.l.invalidateEntry(self.__list.index(entry))
 
 	GUI_WIDGET = eListbox
-
+	
 	def selectionChanged(self):
-		if isinstance(self.current,tuple) and len(self.current) >= 2:
+		if isinstance(self.current,tuple) and len(self.current) == 2:
 			self.current[1].onDeselect(self.session)
 		self.current = self.getCurrent()
-		if isinstance(self.current,tuple) and len(self.current) >= 2:
+		if isinstance(self.current,tuple) and len(self.current) == 2:
 			self.current[1].onSelect(self.session)
 		else:
 			return
@@ -77,10 +76,9 @@ class ConfigList(HTMLComponent, GUIComponent, object):
 	def postWidgetCreate(self, instance):
 		instance.selectionChanged.get().append(self.selectionChanged)
 		instance.setContent(self.l)
-		self.instance.setWrapAround(True)
-
+	
 	def preWidgetRemove(self, instance):
-		if isinstance(self.current,tuple) and len(self.current) >= 2:
+		if isinstance(self.current,tuple) and len(self.current) == 2:
 			self.current[1].onDeselect(self.session)
 		instance.selectionChanged.get().remove(self.selectionChanged)
 		instance.setContent(None)
@@ -109,14 +107,6 @@ class ConfigList(HTMLComponent, GUIComponent, object):
 
 		return is_changed
 
-	def pageUp(self):
-		if self.instance is not None:
-			self.instance.moveSelection(self.instance.pageUp)
-
-	def pageDown(self):
-		if self.instance is not None:
-			self.instance.moveSelection(self.instance.pageDown)
-
 class ConfigListScreen:
 	def __init__(self, list, session = None, on_change = None):
 		self["config_actions"] = NumberActionMap(["SetupActions", "InputAsciiActions", "KeyboardInputActions"],
@@ -130,8 +120,6 @@ class ConfigListScreen:
 			"deleteForward": self.keyDelete,
 			"deleteBackward": self.keyBackspace,
 			"toggleOverwrite": self.keyToggleOW,
-			"pageUp": self.keyPageUp,
-			"pageDown": self.keyPageDown,
 			"1": self.keyNumberGlobal,
 			"2": self.keyNumberGlobal,
 			"3": self.keyNumberGlobal,
@@ -141,45 +129,24 @@ class ConfigListScreen:
 			"7": self.keyNumberGlobal,
 			"8": self.keyNumberGlobal,
 			"9": self.keyNumberGlobal,
-			"0": self.keyNumberGlobal,
-			"file" : self.keyFile
+			"0": self.keyNumberGlobal
 		}, -1) # to prevent left/right overriding the listbox
-
-		self.onChangedEntry = []
 
 		self["VirtualKB"] = ActionMap(["VirtualKeyboardActions"],
 		{
 			"showVirtualKeyboard": self.KeyText,
 		}, -2)
 		self["VirtualKB"].setEnabled(False)
-
+		
 		self["config"] = ConfigList(list, session = session)
-
+		
 		if on_change is not None:
 			self.__changed = on_change
 		else:
 			self.__changed = lambda: None
-
+		
 		if not self.handleInputHelpers in self["config"].onSelectionChanged:
 			self["config"].onSelectionChanged.append(self.handleInputHelpers)
-
-	def createSummary(self):
-		self.setup_title = self.getTitle()
-		from Screens.Setup import SetupSummary
-		return SetupSummary
-
-	def getCurrentEntry(self):
-		return self["config"].getCurrent() and self["config"].getCurrent()[0] or ""
-
-	def getCurrentValue(self):
-		return self["config"].getCurrent() and str(self["config"].getCurrent()[1].getText()) or ""
-
-	def getCurrentDescription(self):
-		return self["config"].getCurrent() and len(self["config"].getCurrent()) > 2 and self["config"].getCurrent()[2] or ""
-
-	def changedEntry(self):
-		for x in self.onChangedEntry:
-			x()
 
 	def handleInputHelpers(self):
 		if self["config"].getCurrent() is not None:
@@ -209,7 +176,7 @@ class ConfigListScreen:
 		if callback is not None and len(callback):
 			self["config"].getCurrent()[1].setValue(callback)
 			self["config"].invalidate(self["config"].getCurrent())
-
+			
 	def keyOK(self):
 		self["config"].handleKey(KEY_OK)
 
@@ -248,27 +215,7 @@ class ConfigListScreen:
 	def keyNumberGlobal(self, number):
 		self["config"].handleKey(KEY_0 + number)
 		self.__changed()
-
-	def keyPageDown(self):
-		self["config"].pageDown()
-
-	def keyPageUp(self):
-		self["config"].pageUp()
-
-	def keyFile(self):
-		selection = self["config"].getCurrent()
-		if selection and selection[1].enabled and hasattr(selection[1], "description"):
-			self.session.openWithCallback(self.handleKeyFileCallback, ChoiceBox, selection[0],
-				list=zip(selection[1].description, selection[1].choices),
-				selection=selection[1].choices.index(selection[1].value),
-				keys=[])
-
-	def handleKeyFileCallback(self, answer):
-		if answer:
-			self["config"].getCurrent()[1].value = answer[1]
-			self["config"].invalidateCurrent()
-			self.__changed()
-
+		
 	def saveAll(self):
 		for x in self["config"].list:
 			x[1].save()
@@ -278,7 +225,7 @@ class ConfigListScreen:
 	def keySave(self):
 		self.saveAll()
 		self.close()
-
+	
 	def cancelConfirm(self, result):
 		if not result:
 			return
@@ -287,14 +234,8 @@ class ConfigListScreen:
 			x[1].cancel()
 		self.close()
 
-	def closeMenuList(self, recursive = False):
+	def keyCancel(self):
 		if self["config"].isChanged():
 			self.session.openWithCallback(self.cancelConfirm, MessageBox, _("Really close without saving settings?"))
 		else:
-			self.close(recursive)
-
-	def keyCancel(self):
-		self.closeMenuList()
-
-	def closeRecursive(self):
-		self.closeMenuList(True)
+			self.close()

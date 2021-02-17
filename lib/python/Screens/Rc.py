@@ -2,7 +2,8 @@ from Components.Pixmap import MovingPixmap, MultiPixmap
 from Tools.Directories import resolveFilename, SCOPE_SKIN
 from xml.etree.ElementTree import ElementTree
 from Components.config import config, ConfigInteger
-from Components.RcModel import rc_model
+from Tools.HardwareInfo import HardwareInfo
+import skin
 
 config.misc.rcused = ConfigInteger(default = 1)
 
@@ -14,31 +15,40 @@ class Rc:
 		self["arrowup"] = MovingPixmap()
 		self["arrowup2"] = MovingPixmap()
 
-		config.misc.rcused = ConfigInteger(default = 1)
-		self.isDefaultRc = rc_model.rcIsDefault()
-		self.rcheight = 500
-		self.rcheighthalf = 250
+		self.initRcused()
 
+		(rcArrowDownW, rcArrowDownH, rcArrowUpW, rcArrowUpH, rcheight, rcheighthalf) = (18, 70, 18, 0, 500, 250)
+		if config.misc.rcused == 2:
+			(rcArrowDownW, rcArrowDownH, rcArrowUpW, rcArrowUpH, rcheight, rcheighthalf) = skin.parameters.get("RcArrow", (18, 70, 18, 0, 500, 250))
+
+		self.rcheight = rcheight
+		self.rcheighthalf = rcheighthalf
+		
 		self.selectpics = []
-		self.selectpics.append((self.rcheighthalf, ["arrowdown", "arrowdown2"], (-18,-70)))
-		self.selectpics.append((self.rcheight, ["arrowup", "arrowup2"], (-18,0)))
-
+		self.selectpics.append((self.rcheighthalf, ["arrowdown", "arrowdown2"], (-rcArrowDownW, -rcArrowDownH)))
+		self.selectpics.append((self.rcheight, ["arrowup", "arrowup2"], (-rcArrowUpW, rcArrowUpH)))
+		
 		self.readPositions()
 		self.clearSelectedKeys()
 		self.onShown.append(self.initRc)
 
-	def initRc(self):
-		if self.isDefaultRc:
-			self["rc"].setPixmapNum(config.misc.rcused.value)
-		else:
-			self["rc"].setPixmapNum(0)
+	def initRcused(self):
+		if config.misc.firstrun.value:
+			boxType = HardwareInfo().get_vu_device_name()
 
+			if boxType in ('bm750', 'uno', 'ultimo', 'solo2', 'duo2', 'solose', 'zero', 'solo4k', 'uno4k', 'ultimo4k'):
+				config.misc.rcused.value = 0
+			elif boxType == 'solo':
+				config.misc.rcused.value = 1
+			else:
+				config.misc.rcused.value = 2
+			config.misc.rcused.save()
+
+	def initRc(self):
+		self["rc"].setPixmapNum(config.misc.rcused.value)		
+				
 	def readPositions(self):
-		if self.isDefaultRc:
-			target = resolveFilename(SCOPE_SKIN, "rcpositions.xml")
-		else:
-			target = rc_model.getRcPositions()
-		tree = ElementTree(file = target)
+		tree = ElementTree(file = resolveFilename(SCOPE_SKIN, "rcpositions.xml"))
 		rcs = tree.getroot()
 		self.rcs = {}
 		for rc in rcs:
@@ -48,25 +58,22 @@ class Rc:
 				name = key.attrib["name"]
 				pos = key.attrib["pos"].split(",")
 				self.rcs[id][name] = (int(pos[0]), int(pos[1]))
-
+		
 	def getSelectPic(self, pos):
 		for selectPic in self.selectpics:
 			if pos[1] <= selectPic[0]:
 				return (selectPic[1], selectPic[2])
 		return None
-
+	
 	def hideRc(self):
 		self["rc"].hide()
 		self.hideSelectPics()
-
+		
 	def showRc(self):
 		self["rc"].show()
 
 	def selectKey(self, key):
-		if self.isDefaultRc:
-			rc = self.rcs[config.misc.rcused.value]
-		else:
-			rc = self.rcs[2]
+		rc = self.rcs[config.misc.rcused.value]
 		if rc.has_key(key):
 			rcpos = self["rc"].getPosition()
 			pos = rc[key]
@@ -82,12 +89,12 @@ class Rc:
 				self[selectPic].startMoving()
 				self[selectPic].show()
 				self.selectedKeys.append(selectPic)
-
+	
 	def clearSelectedKeys(self):
 		self.showRc()
 		self.selectedKeys = []
 		self.hideSelectPics()
-
+		
 	def hideSelectPics(self):
 		for selectPic in self.selectpics:
 			for pic in selectPic[1]:

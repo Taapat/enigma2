@@ -7,6 +7,7 @@ class NetlinkReader():
 		from twisted.internet import reactor
 		self.nls = Netlink.NetlinkSocket()
 		reactor.addReader(self)
+
 	def fileno(self):
 		return self.nls.fileno()
 	def doRead(self):

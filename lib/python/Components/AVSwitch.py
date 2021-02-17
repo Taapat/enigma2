@@ -2,7 +2,8 @@ from config import config, ConfigSlider, ConfigSelection, ConfigYesNo, \
 	ConfigEnableDisable, ConfigSubsection, ConfigBoolean, ConfigSelectionNumber, ConfigNothing, NoSave
 from enigma import eAVSwitch, getDesktop
 from SystemInfo import SystemInfo
-import os
+from os import path as os_path
+from os import access, W_OK
 
 class AVSwitch:
 	def setInput(self, input):
@@ -24,7 +25,8 @@ class AVSwitch:
 			return (4,3)
 		elif valstr == "16_9": # auto ... 4:3 or 16:9
 			try:
-				if "1" in open("/proc/stb/vmpeg/0/aspect", "r").read(): # 4:3
+				aspect_str = open("/proc/stb/vmpeg/0/aspect", "r").read()
+				if aspect_str == "1": # 4:3
 					return (4,3)
 			except IOError:
 				pass
@@ -66,63 +68,53 @@ class AVSwitch:
 
 def InitAVSwitch():
 	config.av = ConfigSubsection()
-	config.av.yuvenabled = ConfigBoolean(default=True)
+	config.av.yuvenabled = ConfigBoolean(default=False)
 	colorformat_choices = {"cvbs": _("CVBS"), "rgb": _("RGB"), "svideo": _("S-Video")}
-
+	
 	# when YUV is not enabled, don't let the user select it
 	if config.av.yuvenabled.value:
 		colorformat_choices["yuv"] = _("YPbPr")
 
-	config.av.colorformat = ConfigSelection(choices=colorformat_choices, default="rgb")
+	config.av.colorformat = ConfigSelection(choices=colorformat_choices, default="cvbs")
 	config.av.aspectratio = ConfigSelection(choices={
 			"4_3_letterbox": _("4:3 Letterbox"),
-			"4_3_panscan": _("4:3 PanScan"),
-			"16_9": _("16:9"),
+			"4_3_panscan": _("4:3 PanScan"), 
+			"16_9": _("16:9"), 
 			"16_9_always": _("16:9 always"),
 			"16_10_letterbox": _("16:10 Letterbox"),
-			"16_10_panscan": _("16:10 PanScan"),
-			"16_9_letterbox": _("16:9 Letterbox")},
-			default = "16_9")
+			"16_10_panscan": _("16:10 PanScan"), 
+			"16_9_letterbox": _("16:9 Letterbox")}, 
+			default = "4_3_letterbox")
+
 	config.av.aspect = ConfigSelection(choices={
 			"4_3": _("4:3"),
-			"16_9": _("16:9"),
+			"16_9": _("16:9"), 
 			"16_10": _("16:10"),
 			"auto": _("Automatic")},
 			default = "auto")
-	policy2_choices = {
-	# TRANSLATORS: (aspect ratio policy: black bars on top/bottom) in doubt, keep english term.
-	"letterbox": _("Letterbox"),
-	# TRANSLATORS: (aspect ratio policy: cropped content on left/right) in doubt, keep english term
-	"panscan": _("Pan&scan"),
-	# TRANSLATORS: (aspect ratio policy: display as fullscreen, even if this breaks the aspect)
-	"scale": _("Just scale")}
-	try:
-		if "auto" in open("/proc/stb/video/policy2_choices").read():
-			# TRANSLATORS: (aspect ratio policy: always try to display as fullscreen, when there is no content (black bars) on left/right, even if this breaks the aspect.
-			policy2_choices.update({"auto": _("Auto")})
-	except:
-		pass
-	config.av.policy_169 = ConfigSelection(choices=policy2_choices, default = "letterbox")
-	policy_choices = {
-	# TRANSLATORS: (aspect ratio policy: black bars on left/right) in doubt, keep english term.
-	"pillarbox": _("Pillarbox"),
-	# TRANSLATORS: (aspect ratio policy: cropped content on left/right) in doubt, keep english term
-	"panscan": _("Pan&scan"),
-	# TRANSLATORS: (aspect ratio policy: display as fullscreen, with stretching the left/right)
-	"nonlinear": _("Nonlinear"),
-	# TRANSLATORS: (aspect ratio policy: display as fullscreen, even if this breaks the aspect)
-	"scale": _("Just scale")}
-	try:
-		if "auto" in open("/proc/stb/video/policy_choices").read():
-			# TRANSLATORS: (aspect ratio policy: always try to display as fullscreen, when there is no content (black bars) on left/right, even if this breaks the aspect.
-			policy_choices.update({"auto": _("Auto")})
-	except:
-		pass
-	config.av.policy_43 = ConfigSelection(choices=policy_choices, default = "pillarbox")
+	config.av.policy_169 = ConfigSelection(choices={
+				# TRANSLATORS: (aspect ratio policy: black bars on top/bottom) in doubt, keep english term.
+			"letterbox": _("Letterbox"), 
+				# TRANSLATORS: (aspect ratio policy: cropped content on left/right) in doubt, keep english term
+			"panscan": _("Pan&Scan"),  
+				# TRANSLATORS: (aspect ratio policy: display as fullscreen, even if this breaks the aspect)
+			"scale": _("Just Scale")},
+			default = "letterbox")
+	config.av.policy_43 = ConfigSelection(choices={
+				# TRANSLATORS: (aspect ratio policy: black bars on left/right) in doubt, keep english term.
+			"pillarbox": _("Pillarbox"), 
+				# TRANSLATORS: (aspect ratio policy: cropped content on left/right) in doubt, keep english term
+			"panscan": _("Pan&Scan"),  
+				# TRANSLATORS: (aspect ratio policy: display as fullscreen, with stretching the left/right)
+			"nonlinear": _("Nonlinear"),  
+				# TRANSLATORS: (aspect ratio policy: display as fullscreen, even if this breaks the aspect)
+			"scale": _("Just Scale")},
+			default = "pillarbox")
 	config.av.tvsystem = ConfigSelection(choices = {"pal": _("PAL"), "ntsc": _("NTSC"), "multinorm": _("multinorm")}, default="pal")
 	config.av.wss = ConfigEnableDisable(default = True)
-	config.av.generalAC3delay = ConfigSelectionNumber(-1000, 1000, 5, default = 0)
-	config.av.generalPCMdelay = ConfigSelectionNumber(-1000, 1000, 5, default = 0)
+	config.av.defaultac3 = ConfigYesNo(default = False)
+	config.av.generalAC3delay = ConfigSelectionNumber(-1000, 1000, 25, default = 0)
+	config.av.generalPCMdelay = ConfigSelectionNumber(-1000, 1000, 25, default = 0)
 	config.av.vcrswitch = ConfigEnableDisable(default = False)
 
 	iAVSwitch = AVSwitch()
@@ -152,50 +144,62 @@ def InitAVSwitch():
 	SystemInfo["ScartSwitch"] = eAVSwitch.getInstance().haveScartSwitch()
 
 	try:
-		SystemInfo["CanDownmixAC3"] = "downmix" in open("/proc/stb/audio/ac3_choices", "r").read()
+		can_pcm_multichannel = access("/proc/stb/audio/multichannel_pcm", W_OK)
 	except:
-		SystemInfo["CanDownmixAC3"] = False
+		can_pcm_multichannel = False
 
-	if SystemInfo["CanDownmixAC3"]:
+	SystemInfo["supportPcmMultichannel"] = can_pcm_multichannel
+
+	if can_pcm_multichannel:
+		def setPCMMultichannel(configElement):
+			open("/proc/stb/audio/multichannel_pcm", "w").write(configElement.value and "enable" or "disable")
+		config.av.pcm_multichannel = ConfigYesNo(default = False)
+		config.av.pcm_multichannel.addNotifier(setPCMMultichannel)
+
+	try:
+		can_downmix = open("/proc/stb/audio/ac3_choices", "r").read()[:-1].find("downmix") != -1
+	except:
+		can_downmix = False
+
+	SystemInfo["CanDownmixAC3"] = can_downmix
+	if can_downmix:
 		def setAC3Downmix(configElement):
 			open("/proc/stb/audio/ac3", "w").write(configElement.value and "downmix" or "passthrough")
+			if SystemInfo.get("supportPcmMultichannel", False) and (not configElement.value) :
+				SystemInfo["CanPcmMultichannel"] = True
+			else:
+				SystemInfo["CanPcmMultichannel"] = False
+
 		config.av.downmix_ac3 = ConfigYesNo(default = True)
 		config.av.downmix_ac3.addNotifier(setAC3Downmix)
 
 	try:
-		SystemInfo["CanDownmixDTS"] = "downmix" in open("/proc/stb/audio/dts_choices", "r").read()
+		can_downmix_aac = open("/proc/stb/audio/aac_choices", "r").read()[:-1].find("downmix") != -1
 	except:
-		SystemInfo["CanDownmixDTS"] = False
+		can_downmix_aac = False
 
-	if SystemInfo["CanDownmixDTS"]:
-		def setDTSDownmix(configElement):
-			open("/proc/stb/audio/dts", "w").write(configElement.value and "downmix" or "passthrough")
-		config.av.downmix_dts = ConfigYesNo(default = True)
-		config.av.downmix_dts.addNotifier(setDTSDownmix)
-
-	try:
-		SystemInfo["CanDownmixAAC"] = "downmix" in open("/proc/stb/audio/aac_choices", "r").read()
-	except:
-		SystemInfo["CanDownmixAAC"] = False
-
-	if SystemInfo["CanDownmixAAC"]:
+	SystemInfo["CanDownmixAAC"] = can_downmix_aac
+	if can_downmix_aac:
 		def setAACDownmix(configElement):
 			open("/proc/stb/audio/aac", "w").write(configElement.value and "downmix" or "passthrough")
 		config.av.downmix_aac = ConfigYesNo(default = True)
 		config.av.downmix_aac.addNotifier(setAACDownmix)
 
 	try:
-		SystemInfo["CanChangeOsdAlpha"] = open("/proc/stb/video/alpha", "r") and True or False
+		can_osd_alpha = open("/proc/stb/video/alpha", "r") and True or False
 	except:
-		SystemInfo["CanChangeOsdAlpha"] = False
+		can_osd_alpha = False
 
-	if SystemInfo["CanChangeOsdAlpha"]:
-		def setAlpha(config):
-			open("/proc/stb/video/alpha", "w").write(str(config.value))
+	SystemInfo["CanChangeOsdAlpha"] = can_osd_alpha
+
+	def setAlpha(config):
+		open("/proc/stb/video/alpha", "w").write(str(config.value))
+
+	if can_osd_alpha:
 		config.av.osd_alpha = ConfigSlider(default=255, limits=(0,255))
 		config.av.osd_alpha.addNotifier(setAlpha)
 
-	if os.path.exists("/proc/stb/vmpeg/0/pep_scaler_sharpness"):
+	if os_path.exists("/proc/stb/vmpeg/0/pep_scaler_sharpness"):
 		def setScaler_sharpness(config):
 			myval = int(config.value)
 			try:

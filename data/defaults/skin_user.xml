@@ -1,0 +1,141 @@
+<skin>
+	<colors>
+		<color name="LCDBackground" value="#191f26" />
+		<color name="LCDforeground" value="white" />
+	</colors>
+	<fonts>
+		<font filename="MyriadPro-Regular.otf" name="Regular2" scale="100" />
+		<font filename="MyriadPro-Semibold.otf" name="Semibold" scale="100" />
+		<font filename="MyriadPro-SemiboldIt.otf" name="Semiboldit" scale="100" />
+	</fonts>
+	<windowstyle type="skinned" id="1">
+		<color name="Background" color="LCDBackground" />
+		<color name="LabelForeground" color="LCDforeground" />
+		<color name="ListboxBackground" color="LCDBackground" />
+		<color name="ListboxForeground" color="LCDforeground" />
+		<color name="ListboxSelectedBackground" color="LCDBackground" />
+		<color name="ListboxSelectedForeground" color="LCDforeground" />
+		<color name="ListboxMarkedBackground" color="LCDBackground" />
+		<color name="ListboxMarkedForeground" color="LCDforeground" />
+		<color name="ListboxMarkedAndSelectedBackground" color="LCDBackground" />
+		<color name="ListboxMarkedAndSelectedForeground" color="LCDforeground" />
+		<color name="WindowTitleBackground" color="LCDBackground" />
+		<color name="WindowTitleForeground" color="LCDforeground" />
+	</windowstyle>
+
+	<!-- Templetes -->
+	<screen name="LCDClockTemplete">
+		<ePixmap pixmap="lcd_icons/icon_time.png" position="290,15"  size="18,18" alphatest="blend" />
+		<widget source="global.CurrentTime" render="Label" position="318,13" size="220,44" font="Regular;32" halign="left" backgroundColor="LCDBackground">
+			<convert type="ClockToText">Format:%H:%M</convert>
+		</widget>
+	</screen>
+	<screen name="LCDIconTemplete">
+		<widget source="session.RecordState" render="Pixmap" pixmap="lcd_icons/icon_REC.png" position="18,13"  size="37,22" alphatest="blend">
+			<convert type="ConditionalShowHide" />
+		</widget>
+		<widget source="session.CurrentService" render="Pixmap" pixmap="lcd_icons/icon_CRYPT.png" position="68,13"  size="30,22" alphatest="blend">
+			<convert type="ServiceInfo">IsCrypted</convert>
+			<convert type="ConditionalShowHide" />
+		</widget>
+		<widget source="session.CurrentService" render="Pixmap" pixmap="lcd_icons/icon_TELETEXT.png" position="110,11" size="33,26" alphatest="blend">
+			<convert type="ServiceInfo">HasTelext</convert>
+			<convert type="ConditionalShowHide" />
+		</widget>
+		<widget source="session.CurrentService" render="Pixmap" pixmap="lcd_icons/icon_16x9.png" position="156,11" size="33,26" alphatest="blend">
+			<convert type="ServiceInfo">IsWidescreen</convert>
+			<convert type="ConditionalShowHide" />
+		</widget>
+		<widget source="session.CurrentService" render="Pixmap" pixmap="lcd_icons/icon_DOLBY.png" position="201,13" size="34,22" alphatest="blend">
+			<convert type="ServiceInfo">IsMultichannel</convert>
+			<convert type="ConditionalShowHide" />
+		</widget>
+	</screen>
+
+	<!-- screens -->
+	<screen name="InfoBarSummary" position="0,0" size="400,240" id="1">
+		<panel name="LCDIconTemplete" />
+		<panel name="LCDClockTemplete" />
+		<widget source="session.CurrentService" render="Label" position="23,60" size="360,40" font="Semibold;38" halign="center" valign="center" backgroundColor="LCDBackground">
+			<convert type="ServiceName">Name</convert>
+		</widget>
+		<widget source="session.Event_Now" render="Label" position="23,100" size="360,80" font="Regular;38" halign="center" valign="center" backgroundColor="LCDBackground">
+			<convert type="EventName">Name</convert>
+		</widget>
+		<widget source="session.Event_Now" render="Progress" position="48,190" size="305,30" borderWidth="2" backgroundColor="LCDBackground">
+			<convert type="EventTime">Progress</convert>
+		</widget>
+	 </screen>
+	 <screen name="ChannelSelection_summary" position="0,0" size="400,240" id="1">
+		<panel name="LCDIconTemplete" />
+		<panel name="LCDClockTemplete" />
+		<widget source="parent.ServiceEvent" render="Label" position="23,60" size="360,40" font="Semibold;38" halign="center" valign="bottom" backgroundColor="LCDBackground">
+			<convert type="ServiceName">Name</convert>
+		</widget>
+		<widget source="parent.ServiceEvent" render="Label" position="23,100" size="360,80" font="Regular;38" halign="center" valign="center" backgroundColor="LCDBackground">
+			<convert type="EventName">Name</convert>
+		</widget>
+		<widget source="session.Event_Now" render="Progress" position="48,190" size="305,30" borderWidth="2" backgroundColor="LCDBackground">
+			<convert type="EventTime">Progress</convert>
+		</widget>
+	</screen>
+	<screen name="InfoBarMoviePlayerSummary" position="0,0" size="400,240" id="1">
+		<panel name="LCDIconTemplete" />
+		<panel name="LCDClockTemplete" />
+		<widget source="session.CurrentService" render="Label" position="23,55" size="360,120" font="Semibold;38" halign="center" valign="center" backgroundColor="LCDBackground">
+			<convert type="ServiceName">Name</convert>
+		</widget>
+		<widget source="session.CurrentService" render="Progress" position="48,190" size="305,30" borderWidth="2" backgroundColor="LCDBackground">
+			<convert type="ServicePosition">Position</convert>
+		</widget>
+	</screen>
+	<screen name="ChoiceBox_summary" position="0,0" size="400,240" id="1">
+		<widget source="parent.summary_list" render="Label" position="23,20" size="360,200" font="Regular;34" valign="center"  />
+	</screen>
+	<screen name="MessageBox_summary" position="0,0" size="400,240" id="1">
+		<widget source="parent.Text" render="Label" position="15,10" size="370,150" font="Regular;34" halign="center" valign="center" />
+		<widget source="parent.selectedChoice" render="Label" position="100,160" size="200,30" font="Regular;34" halign="center" valign="center" />
+	</screen>
+	<screen name="MenuSummary" position="0,0" size="400,240" id="1">
+		<panel name="LCDIconTemplete" />
+		<panel name="LCDClockTemplete" />
+		<widget source="parent.title" render="Label" position="15,65" size="370,55" font="Semibold;38" halign="center" valign="center" backgroundColor="LCDBackground" />
+		<widget source="parent.menu" render="Label" position="15,120" size="370,90" font="Semibold;42" halign="center" valign="center" backgroundColor="LCDBackground">
+			<convert type="StringListSelection" />
+		</widget>
+	</screen>
+	<screen name="ServiceScanSummary" position="0,0" size="400,240" id="1">
+		<widget name="Title" position="20,10" size="360,70" font="Regular;44" transparent="1" backgroundColor="LCDBackground" />
+		<widget name="Service" position="20,90" size="360,105" font="Regular;34" transparent="1" backgroundColor="LCDBackground" />
+		<widget name="scan_progress" position="48,190" zPosition="1" borderWidth="2" size="305,30" backgroundColor="LCDBackground" />
+	</screen>
+	<screen name="SetupSummary" position="0,0" size="400,240" id="1">
+		<panel name="LCDIconTemplete" />
+		<panel name="LCDClockTemplete" />
+		<widget source="SetupTitle" render="Label" position="15,55" size="360,45" font="Semibold;42" halign="center" backgroundColor="LCDBackground" />
+		<widget source="SetupEntry" render="Label" position="15,100" size="360,90" font="Semibold;38" halign="center" backgroundColor="LCDBackground" />
+		<widget source="SetupValue" render="Label" position="15,190" size="360,45" font="Regular;33" halign="center" backgroundColor="LCDBackground" />
+	</screen>
+	<screen name="StandbySummary" position="0,0" size="400,240" id="1">
+		<panel name="LCDIconTemplete" />
+		<widget source="global.CurrentTime" render="Label" position="0,40" size="400,160" font="Regular;110" halign="center" valign="center">
+			<convert type="ClockToText">Format:%H:%M</convert>
+		</widget>
+	</screen>
+	<screen name="SimpleSummary" position="0,0" size="400,240" id="1">
+		<panel name="LCDClockTemplete" />
+		<panel name="LCDIconTemplete" />
+		<widget source="parent.Title" render="Label" position="23,55" size="355,135" font="Semibold;42" halign="center" valign="center" backgroundColor="LCDBackground" />
+	</screen>
+	<screen name="MediaPlayerLCDScreen" position="0,0" size="400,240" id="1">
+		<widget name="text1" position="18,10" size="365,118" font="Regular;38"/>
+		<widget name="text3" position="18,133" size="365,45" font="Regular;24"/>
+		<widget name="text4" position="18,178" size="365,45" font="Regular;24"/>
+	</screen>
+	<screen name="WizardSummary" position="0,0" size="400,240" id="1">
+		<widget source="text" render="Label" position="20,10" size="338,60" font="Regular;43" transparent="1" backgroundColor="LCDBackground" />
+		<widget source="parent.list" render="Label" position="20,80" size="360,165" font="Regular;44">
+			<convert type="StringListSelection" />
+		</widget>
+	</screen>
+</skin>

@@ -4,48 +4,51 @@ from skin import parseColor, parseFont
 
 from enigma import eListboxServiceContent, eListbox, eServiceCenter, eServiceReference, gFont, eRect
 from Tools.LoadPixmap import LoadPixmap
-from Tools.TextBoundary import getTextBoundarySize
 
 from Tools.Directories import resolveFilename, SCOPE_CURRENT_SKIN
 
-from Components.Renderer.Picon import getPiconName
 from Components.config import config
+from Components.Renderer.Picon import getPiconName
 
 def refreshServiceList(configElement = None):
-	from Screens.InfoBar import InfoBar
-	InfoBarInstance = InfoBar.instance
-	if InfoBarInstance is not None:
-		servicelist = InfoBarInstance.servicelist
-		if servicelist:
-			servicelist.setMode()
+        from Screens.InfoBar import InfoBar
+        InfoBarInstance = InfoBar.instance
+        if InfoBarInstance is not None:
+                servicelist = InfoBarInstance.servicelist
+                if servicelist:
+                        servicelist.setMode()
 
 class ServiceList(HTMLComponent, GUIComponent):
 	MODE_NORMAL = 0
 	MODE_FAVOURITES = 1
 
-	def __init__(self, serviceList):
-		self.serviceList = serviceList
+	def __init__(self):
 		GUIComponent.__init__(self)
 		self.l = eListboxServiceContent()
 
 		pic = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/folder.png"))
-		pic and self.l.setPixmap(self.l.picFolder, pic)
+		if pic:
+			self.l.setPixmap(self.l.picFolder, pic)
+
 		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/marker.png"))
-		pic and	self.l.setPixmap(self.l.picMarker, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_dvb_s-fs8.png"))
-		pic and	self.l.setPixmap(self.l.picDVB_S, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_dvb_c-fs8.png"))
-		pic and self.l.setPixmap(self.l.picDVB_C, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_dvb_t-fs8.png"))
-		pic and self.l.setPixmap(self.l.picDVB_T, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_stream-fs8.png"))
-		pic and self.l.setPixmap(self.l.picStream, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_service_group-fs8.png"))
-		pic and self.l.setPixmap(self.l.picServiceGroup, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/icon_crypt.png"))
-		pic and self.l.setPixmap(self.l.picCrypto, pic)
-		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/record.png"))
-		pic and self.l.setPixmap(self.l.picRecord, pic)
+		if pic:
+			self.l.setPixmap(self.l.picMarker, pic)
+
+		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_s-fs8.png"))
+		if pic:
+			self.l.setPixmap(self.l.picDVB_S, pic)
+
+		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_c-fs8.png"))
+		if pic:
+			self.l.setPixmap(self.l.picDVB_C, pic)
+
+		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_t-fs8.png"))
+		if pic:
+			self.l.setPixmap(self.l.picDVB_T, pic)
+
+		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_service_group-fs8.png"))
+		if pic:
+			self.l.setPixmap(self.l.picServiceGroup, pic)
 
 		self.root = None
 		self.mode = self.MODE_NORMAL
@@ -53,81 +56,50 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.ServiceNameFont = parseFont("Regular;22", ((1,1),(1,1)))
 		self.ServiceInfoFont = parseFont("Regular;18", ((1,1),(1,1)))
 		self.ServiceNumberFont = parseFont("Regular;20", ((1,1),(1,1)))
-		self.progressBarWidth = 52
-		self.fieldMargins = 10
-
 		self.onSelectionChanged = [ ]
 
 	def applySkin(self, desktop, parent):
-		def foregroundColorMarked(value):
-			self.l.setColor(eListboxServiceContent.markedForeground, parseColor(value))
-		def foregroundColorMarkedSelected(value):
-			self.l.setColor(eListboxServiceContent.markedForegroundSelected, parseColor(value))
-		def backgroundColorMarked(value):
-			self.l.setColor(eListboxServiceContent.markedBackground, parseColor(value))
-		def backgroundColorMarkedSelected(value):
-			self.l.setColor(eListboxServiceContent.markedBackgroundSelected, parseColor(value))
-		def foregroundColorServiceNotAvail(value):
-			self.l.setColor(eListboxServiceContent.serviceNotAvail, parseColor(value))
-		def foregroundColorEvent(value):
-			self.l.setColor(eListboxServiceContent.eventForeground, parseColor(value))
-		def colorServiceDescription(value):
-			self.l.setColor(eListboxServiceContent.eventForeground, parseColor(value))
-		def foregroundColorEventSelected(value):
-			self.l.setColor(eListboxServiceContent.eventForegroundSelected, parseColor(value))
-		def colorServiceDescriptionSelected(value):
-			self.l.setColor(eListboxServiceContent.eventForegroundSelected, parseColor(value))
-		def foregroundColorEventborder(value):
-			self.l.setColor(eListboxServiceContent.eventborderForeground, parseColor(value))
-		def foregroundColorEventborderSelected(value):
-			self.l.setColor(eListboxServiceContent.eventborderForegroundSelected, parseColor(value))
-		def colorEventProgressbar(value):
-			self.l.setColor(eListboxServiceContent.serviceEventProgressbarColor, parseColor(value))
-		def colorEventProgressbarSelected(value):
-			self.l.setColor(eListboxServiceContent.serviceEventProgressbarColorSelected, parseColor(value))
-		def colorEventProgressbarBorder(value):
-			self.l.setColor(eListboxServiceContent.serviceEventProgressbarBorderColor, parseColor(value))
-		def colorEventProgressbarBorderSelected(value):
-			self.l.setColor(eListboxServiceContent.serviceEventProgressbarBorderColorSelected, parseColor(value))
-		def colorServiceRecorded(value):
-			self.l.setColor(eListboxServiceContent.serviceRecorded, parseColor(value))
-		def colorFallbackItem(value):
-			self.l.setColor(eListboxServiceContent.serviceItemFallback, parseColor(value))
-		def colorServiceSelectedFallback(value):
-			self.l.setColor(eListboxServiceContent.serviceSelectedFallback, parseColor(value))
-		def colorServiceDescriptionFallback(value):
-			self.l.setColor(eListboxServiceContent.eventForegroundFallback, parseColor(value))
-		def colorServiceDescriptionSelectedFallback(value):
-			self.l.setColor(eListboxServiceContent.eventForegroundSelectedFallback, parseColor(value))
-		def picServiceEventProgressbar(value):
-			pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, value))
-			pic and self.l.setPixmap(self.l.picServiceEventProgressbar, pic)
-		def serviceItemHeight(value):
-			self.ItemHeight = int(value)
-		def serviceNameFont(value):
-			self.ServiceNameFont = parseFont(value, ((1,1),(1,1)))
-		def serviceInfoFont(value):
-			self.ServiceInfoFont = parseFont(value, ((1,1),(1,1)))
-		def serviceNumberFont(value):
-			self.ServiceNumberFont = parseFont(value, ((1,1),(1,1)))
-		def progressbarHeight(value):
-			self.l.setProgressbarHeight(int(value))
-		def progressbarBorderWidth(value):
-			self.l.setProgressbarBorderWidth(int(value))
-		def progressBarWidth(value):
-			self.progressBarWidth = int(value)
-		def fieldMargins(value):
-			self.fieldMargins = int(value)
-		def nonplayableMargins(value):
-			self.l.setNonplayableMargins(int(value))
-		def itemsDistances(value):
-			self.l.setItemsDistances(int(value))
-		for (attrib, value) in list(self.skinAttributes):
-			try:
-				locals().get(attrib)(value)
-				self.skinAttributes.remove((attrib, value))
-			except:
-				pass
+		attribs = [ ]
+		if self.skinAttributes is not None:
+			attribs = [ ]
+			for (attrib, value) in self.skinAttributes:
+				if attrib == "foregroundColorMarked":
+					self.l.setColor(eListboxServiceContent.markedForeground, parseColor(value))
+				elif attrib == "foregroundColorMarkedSelected":
+					self.l.setColor(eListboxServiceContent.markedForegroundSelected, parseColor(value))
+				elif attrib == "backgroundColorMarked":
+					self.l.setColor(eListboxServiceContent.markedBackground, parseColor(value))
+				elif attrib == "backgroundColorMarkedSelected":
+					self.l.setColor(eListboxServiceContent.markedBackgroundSelected, parseColor(value))
+				elif attrib == "foregroundColorServiceNotAvail":
+					self.l.setColor(eListboxServiceContent.serviceNotAvail, parseColor(value))
+				elif attrib == "colorEventProgressbar":
+					self.l.setColor(eListboxServiceContent.serviceEventProgressbarColor, parseColor(value))
+				elif attrib == "colorEventProgressbarSelected":
+					self.l.setColor(eListboxServiceContent.serviceEventProgressbarColorSelected, parseColor(value))
+				elif attrib == "colorEventProgressbarBorder":
+					self.l.setColor(eListboxServiceContent.serviceEventProgressbarBorderColor, parseColor(value))
+				elif attrib == "colorEventProgressbarBorderSelected":
+					self.l.setColor(eListboxServiceContent.serviceEventProgressbarBorderColorSelected, parseColor(value))
+				elif attrib == "colorServiceDescription":
+					self.l.setColor(eListboxServiceContent.serviceDescriptionColor, parseColor(value))
+				elif attrib == "colorServiceDescriptionSelected":
+					self.l.setColor(eListboxServiceContent.serviceDescriptionColorSelected, parseColor(value))
+				elif attrib == "picServiceEventProgressbar":
+					pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, value))
+					if pic:
+						self.l.setPixmap(self.l.picServiceEventProgressbar, pic)
+				elif attrib == "serviceItemHeight":
+					self.ItemHeight = int(value)
+				elif attrib == "serviceNameFont":
+					self.ServiceNameFont = parseFont(value, ((1,1),(1,1)))
+				elif attrib == "serviceInfoFont":
+					self.ServiceInfoFont = parseFont(value, ((1,1),(1,1)))
+				elif attrib == "serviceNumberFont":
+					self.ServiceNumberFont = parseFont(value, ((1,1),(1,1)))
+				else:
+					attribs.append((attrib, value))
+		self.skinAttributes = attribs
 		return GUIComponent.applySkin(self, desktop, parent)
 
 	def connectSelChanged(self, fnc):
@@ -142,47 +114,26 @@ class ServiceList(HTMLComponent, GUIComponent):
 		for x in self.onSelectionChanged:
 			x()
 
-	def setCurrent(self, ref, adjust=True):
-		if self.l.setCurrent(ref):
-			return None
-		from Components.ServiceEventTracker import InfoBarCount
-		if adjust and config.usage.multibouquet.value and InfoBarCount == 1 and ref and ref.type != 8192:
-			print "[servicelist] search for service in userbouquets"
-			if self.serviceList:
-				revert_mode = config.servicelist.lastmode.value
-				revert_root = self.getRoot()
-				self.serviceList.setModeTv()
-				revert_tv_root = self.getRoot()
-				bouquets = self.serviceList.getBouquetList()
-				for bouquet in bouquets:
-					self.serviceList.enterUserbouquet(bouquet[1])
-					if self.l.setCurrent(ref):
-						config.servicelist.lastmode.save()
-						self.serviceList.saveChannel(ref)
-						return True
-				self.serviceList.enterUserbouquet(revert_tv_root)	
-				self.serviceList.setModeRadio()
-				revert_radio_root = self.getRoot()
-				bouquets = self.serviceList.getBouquetList()
-				for bouquet in bouquets:
-					self.serviceList.enterUserbouquet(bouquet[1])
-					if self.l.setCurrent(ref):
-						config.servicelist.lastmode.save()
-						self.serviceList.saveChannel(ref)
-						return True
-				self.serviceList.enterUserbouquet(revert_radio_root)		
-				print "[servicelist] service not found in any userbouquets"
-				if revert_mode == "tv":
-					self.serviceList.setModeTv()
-				elif revert_mode == "radio":
-					self.serviceList.setModeRadio()
-				self.serviceList.enterUserbouquet(revert_root)
-		return False
+	def setCurrent(self, ref):
+		self.l.setCurrent(ref)
 
 	def getCurrent(self):
 		r = eServiceReference()
 		self.l.getCurrent(r)
 		return r
+
+	def getPrev(self):
+		r = eServiceReference()
+		self.l.getPrev(r)
+		return r
+
+	def getNext(self):
+		r = eServiceReference()
+		self.l.getNext(r)
+		return r
+
+	def getList(self):
+		return self.l.getList()
 
 	def atBegin(self):
 		return self.instance.atBegin()
@@ -223,7 +174,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		return self.instance.getCurrentIndex()
 
 	GUI_WIDGET = eListbox
-
+	
 	def postWidgetCreate(self, instance):
 		instance.setWrapAround(True)
 		instance.setContent(self.l)
@@ -250,6 +201,9 @@ class ServiceList(HTMLComponent, GUIComponent):
 					break
 		return dest
 
+	def setNumberOffset(self, offset):
+		self.l.setNumberOffset(offset)
+
 	def setPlayableIgnoreService(self, ref):
 		self.l.setIgnoreService(ref)
 
@@ -259,12 +213,6 @@ class ServiceList(HTMLComponent, GUIComponent):
 		if not justSet:
 			self.l.sort()
 		self.selectionChanged()
-
-	def resetRoot(self):
-		index = self.instance.getCurrentIndex()
-		self.l.setRoot(self.root, False)
-		self.l.sort()
-		self.instance.moveSelectionTo(index)
 
 	def removeCurrent(self):
 		self.l.removeCurrent()
@@ -304,43 +252,52 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.l.setCurrentMarked(state)
 
 	def setMode(self, mode):
+		
 		self.mode = mode
 		self.l.setItemHeight(self.ItemHeight)
 		self.l.setVisualMode(eListboxServiceContent.visModeComplex)
-
+		
+		
+		piconw = 0
 		if config.usage.service_icon_enable.value:
 			self.l.setGetPiconNameFunc(getPiconName)
+			piconw = 67
+			if config.skin.xres.value == 1920:
+				piconw = 92
 		else:
 			self.l.setGetPiconNameFunc(None)
-
+		
+				
 		rowWidth = self.instance.size().width() - 30 #scrollbar is fixed 20 + 10 Extra marge
-
-		if mode == self.MODE_NORMAL or not config.usage.show_channel_numbers_in_servicelist.value:
+		channelNumberSpace = 10
+		self.progressBarWidth = 52
+		self.fieldMargins = 0
+			
+		if mode == self.MODE_NORMAL:
 			channelNumberWidth = 0
-			channelNumberSpace = 0
-		else:
-			channelNumberWidth = config.usage.alternative_number_mode.value and getTextBoundarySize(self.instance, self.ServiceNumberFont, self.instance.size(), "0000").width() or getTextBoundarySize(self.instance, self.ServiceNumberFont, self.instance.size(), "00000").width()
-			channelNumberSpace = self.fieldMargins
-
+		else: 
+			if config.skin.xres.value == 1920:
+				channelNumberWidth = 70
+			else:
+				channelNumberWidth = 50
+				
 		self.l.setElementPosition(self.l.celServiceNumber, eRect(0, 0, channelNumberWidth, self.ItemHeight))
-
-		if "left" in config.usage.show_event_progress_in_servicelist.value:
-			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(channelNumberWidth+channelNumberSpace, 0, self.progressBarWidth , self.ItemHeight))
-			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth+channelNumberSpace + self.progressBarWidth + self.fieldMargins, 0, rowWidth - (channelNumberWidth+channelNumberSpace + self.progressBarWidth + self.fieldMargins), self.ItemHeight))
-		elif "right" in config.usage.show_event_progress_in_servicelist.value:
-			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(rowWidth - self.progressBarWidth, 0, self.progressBarWidth, self.ItemHeight))
-			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth+channelNumberSpace, 0, rowWidth - (channelNumberWidth+channelNumberSpace + self.progressBarWidth + self.fieldMargins), self.ItemHeight))
+		
+		if config.usage.show_event_progress_in_servicelist.value:
+			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(channelNumberWidth+channelNumberSpace + piconw, 0, self.progressBarWidth , self.ItemHeight))
+			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth+channelNumberSpace + self.fieldMargins, 0, rowWidth - (channelNumberWidth+channelNumberSpace + self.progressBarWidth + self.fieldMargins), self.ItemHeight))
 		else:
 			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(0, 0, 0, 0))
 			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth+channelNumberSpace, 0, rowWidth - (channelNumberWidth+channelNumberSpace), self.ItemHeight))
-
+		
 		self.l.setElementFont(self.l.celServiceName, self.ServiceNameFont)
 		self.l.setElementFont(self.l.celServiceNumber, self.ServiceNumberFont)
 		self.l.setElementFont(self.l.celServiceInfo, self.ServiceInfoFont)
-		if "perc" in config.usage.show_event_progress_in_servicelist.value:
-			self.l.setElementFont(self.l.celServiceEventProgressbar, self.ServiceInfoFont)
 		self.l.setHideNumberMarker(config.usage.hide_number_markers.value)
-		self.l.setServiceTypeIconMode(int(config.usage.servicetype_icon_mode.value))
-		self.l.setCryptoIconMode(int(config.usage.crypto_icon_mode.value))
-		self.l.setRecordIndicatorMode(int(config.usage.record_indicator_mode.value))
-		self.l.setColumnWidth(int(config.usage.servicelist_column.value))
+		
+
+
+	def selectionEnabled(self, enabled):
+		if self.instance is not None:
+			self.instance.setSelectionEnable(enabled)
+

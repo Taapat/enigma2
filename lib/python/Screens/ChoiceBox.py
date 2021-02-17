@@ -1,56 +1,28 @@
 from Screens.Screen import Screen
-from Screens.MessageBox import MessageBox
 from Components.ActionMap import NumberActionMap
-from Components.config import config, ConfigSubsection, ConfigText
 from Components.Label import Label
 from Components.ChoiceList import ChoiceEntryComponent, ChoiceList
 from Components.Sources.StaticText import StaticText
-import enigma
-
-config.misc.pluginlist = ConfigSubsection()
-config.misc.pluginlist.eventinfo_order = ConfigText(default="")
-config.misc.pluginlist.extension_order = ConfigText(default="")
 
 class ChoiceBox(Screen):
-	def __init__(self, session, title="", list=[], keys=None, selection=0, skin_name=[], reorderConfig=""):
+	def __init__(self, session, title = "", list = [], keys = None, selection = 0, skin_name = []):
 		Screen.__init__(self, session)
 
 		if isinstance(skin_name, str):
 			skin_name = [skin_name]
-		self.skinName = skin_name + ["ChoiceBox"]
-
-		self.reorderConfig = reorderConfig
+		self.skinName = skin_name + ["ChoiceBox"] 
+		self.lcd_xres = None
+		self.lcd_xres=self.readlcdxres()
 		self["text"] = Label(title)
 		self.list = []
 		self.summarylist = []
 		if keys is None:
-			self.__keys = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "red", "green", "yellow", "blue" ] + (len(list) - 14) * [""]
+			self.__keys = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "red", "green", "yellow", "blue" ] + (len(list) - 10) * [""]
 		else:
 			self.__keys = keys + (len(list) - len(keys)) * [""]
-
+			
 		self.keymap = {}
 		pos = 0
-		if self.reorderConfig:
-			self.config_type = eval("config.misc.pluginlist." + self.reorderConfig)
-			if self.config_type.value:
-				prev_list = zip(list, self.__keys)
-				new_list = []
-				for x in self.config_type.value.split(","):
-					for entry in prev_list:
-						if entry[0][0] == x:
-							new_list.append(entry)
-							prev_list.remove(entry)
-				list = zip(*(new_list + prev_list))
-				list, self.__keys = list[0], list[1]
-				number = 1
-				new_keys = []
-				for x in self.__keys:
-					if (not x or x.isdigit()) and number <= 10:
-						new_keys.append(str(number % 10))
-						number+=1
-					else:
-						new_keys.append(not x.isdigit() and x or "")
-				self.__keys = new_keys
 		for x in list:
 			strpos = str(self.__keys[pos])
 			self.list.append(ChoiceEntryComponent(key = strpos, text = x))
@@ -60,10 +32,9 @@ class ChoiceBox(Screen):
 			pos += 1
 		self["list"] = ChoiceList(list = self.list, selection = selection)
 		self["summary_list"] = StaticText()
-		self["summary_selection"] = StaticText()
 		self.updateSummary(selection)
-
-		self["actions"] = NumberActionMap(["WizardActions", "InputActions", "ColorActions", "DirectionActions", "MenuActions"],
+				
+		self["actions"] = NumberActionMap(["WizardActions", "InputActions", "ColorActions", "DirectionActions"], 
 		{
 			"ok": self.go,
 			"back": self.cancel,
@@ -82,43 +53,15 @@ class ChoiceBox(Screen):
 			"yellow": self.keyYellow,
 			"blue": self.keyBlue,
 			"up": self.up,
-			"down": self.down,
-			"moveUp": self.additionalMoveUp,
-			"moveDown": self.additionalMoveDown,
-			"menu": self.setDefaultChoiceList
+			"down": self.down
 		}, -1)
-
-	def autoResize(self):
-		orgwidth = self.instance.size().width()
-		orgpos = self.instance.position()
-		textsize = self["text"].getSize()
-		count = len(self.list)
-		if count > 10:
-			count = 10
-		offset = 25 * count
-		wsizex = textsize[0] + 60
-		wsizey = textsize[1] + offset
-		if (520 > wsizex):
-			wsizex = 520
-		wsize = (wsizex, wsizey)
-		# resize
-		self.instance.resize(enigma.eSize(*wsize))
-		# resize label
-		self["text"].instance.resize(enigma.eSize(*textsize))
-		# move list
-		listsize = (wsizex, 25 * count)
-		self["list"].instance.move(enigma.ePoint(0, textsize[1]))
-		self["list"].instance.resize(enigma.eSize(*listsize))
-		# center window
-		newwidth = wsize[0]
-		self.instance.move(enigma.ePoint((720-wsizex)/2, (576-wsizey)/(count > 7 and 2 or 3)))
-
+		
 	def keyLeft(self):
 		pass
-
+	
 	def keyRight(self):
 		pass
-
+	
 	def up(self):
 		if len(self["list"].list) > 0:
 			while 1:
@@ -179,54 +122,27 @@ class ChoiceBox(Screen):
 		pos = 0
 		summarytext = ""
 		for entry in self.summarylist:
-			if pos > curpos-2 and pos < curpos+5:
+			if self.lcd_xres is not None and self.lcd_xres > 140:
+				if pos > curpos-2 and pos < curpos+5:
+					if pos == curpos:
+						summarytext += ">"
+					else:
+						summarytext += entry[0]
+					summarytext += ' ' + entry[1] + '\n'
+			else:
 				if pos == curpos:
-					summarytext += ">"
-					self["summary_selection"].setText(entry[1])
-				else:
-					summarytext += entry[0]
-				summarytext += ' ' + entry[1] + '\n'
+					summarytext += entry[0]+' '+ entry[1]
 			pos += 1
 		self["summary_list"].setText(summarytext)
 
 	def cancel(self):
 		self.close(None)
 
-	def setDefaultChoiceList(self):
-		if self.reorderConfig:
-			if len(self.list) > 0 and self.config_type.value != "":
-				self.session.openWithCallback(self.setDefaultChoiceListCallback, MessageBox, _("Sort list to default and exit?"), MessageBox.TYPE_YESNO)
-		else:
-			self.cancel()
-
-	def setDefaultChoiceListCallback(self, answer):
-		if answer:
-			self.config_type.value = ""
-			self.config_type.save()
-			self.cancel()
-
-	def additionalMoveUp(self):
-		if self.reorderConfig:
-			self.additionalMove(-1)
-
-	def additionalMoveDown(self):
-		if self.reorderConfig:
-			self.additionalMove(1)
-
-	def additionalMove(self, direction):
-		if len(self.list) > 1:
-			currentIndex = self["list"].getSelectionIndex()
-			swapIndex = (currentIndex + direction) % len(self.list)
-			if currentIndex == 0 and swapIndex != 1:
-				self.list = self.list[1:] + [self.list[0]]
-			elif swapIndex == 0 and currentIndex != 1:
-				self.list = [self.list[-1]] + self.list[:-1]
-			else:
-				self.list[currentIndex], self.list[swapIndex] = self.list[swapIndex], self.list[currentIndex]
-			self["list"].l.setList(self.list)
-			if direction == 1:
-				self["list"].down()
-			else:
-				self["list"].up()
-			self.config_type.value = ",".join(x[0][0] for x in self.list)
-			self.config_type.save()
+	def readlcdxres(self):
+		try:
+			fd = open("/proc/stb/lcd/xres","r")
+			value = int(fd.read().strip(),16)
+			fd.close()
+			return value
+		except:
+			return None

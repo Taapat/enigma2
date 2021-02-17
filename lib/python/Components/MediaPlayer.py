@@ -1,11 +1,13 @@
 from MenuList import MenuList
 
+from Components.config import config
 from Tools.Directories import SCOPE_CURRENT_SKIN, resolveFilename
 from os import path
 
 from enigma import eListboxPythonMultiContent, RT_VALIGN_CENTER, gFont, eServiceCenter
 
 from Tools.LoadPixmap import LoadPixmap
+import skin
 
 STATE_PLAY = 0
 STATE_PAUSE = 1
@@ -14,35 +16,46 @@ STATE_REWIND = 3
 STATE_FORWARD = 4
 STATE_NONE = 5
 
+PlayIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_play.png"))
+PauseIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_pause.png"))
+StopIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_stop.png"))
+RewindIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_rewind.png"))
+ForwardIcon = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_forward.png"))
+
+def PlaylistEntryComponent(serviceref, state):
+	res = [ serviceref ]
+	text = serviceref.getName()
+	if text is "":
+		text = path.split(serviceref.getPath().split('/')[-1])[1]
+	x, y, w, h = skin.parameters.get("PlayListName",(25, 1, 470, 22))
+	res.append((eListboxPythonMultiContent.TYPE_TEXT,x, y, w, h, 0, RT_VALIGN_CENTER, text))
+	png = None
+	if state == STATE_PLAY:
+		png = PlayIcon
+	elif state == STATE_PAUSE:
+		png = PauseIcon
+	elif state == STATE_STOP:
+		png = StopIcon
+	elif state == STATE_REWIND:
+		png = RewindIcon
+	elif state == STATE_FORWARD:
+		png = ForwardIcon
+
+	if png is not None:
+		x, y, w, h = skin.parameters.get("PlayListIcon",(5, 3, 16, 16))
+		res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHATEST, x, y, w, h, png))
+
+	return res
+
 class PlayList(MenuList):
 	def __init__(self, enableWrapAround = False):
 		MenuList.__init__(self, [], enableWrapAround, eListboxPythonMultiContent)
-		self.l.setFont(0, gFont("Regular", 18))
-		self.l.setItemHeight(23)
+		font = skin.fonts.get("PlayList", ("Regular", 18, 23))
+		self.l.setFont(0, gFont(font[0], font[1]))
+		self.l.setItemHeight(font[2])
 		self.currPlaying = -1
 		self.oldCurrPlaying = -1
 		self.serviceHandler = eServiceCenter.getInstance()
-		self.state = STATE_NONE
-		self.icons = [
-			LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_play.png")),
-			LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_pause.png")),
-			LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_stop.png")),
-			LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_rewind.png")),
-			LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/ico_mp_forward.png")),
-		]
-
-	def PlaylistEntryComponent(self, serviceref, state):
-		res = [ serviceref ]
-		text = serviceref.getName()
-		if text is "":
-			text = path.split(serviceref.getPath().split('/')[-1])[1]
-		res.append((eListboxPythonMultiContent.TYPE_TEXT,25, 1, 470, 22, 0, RT_VALIGN_CENTER, text))
-		try:
-			png = self.icons[state]
-			res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHATEST, 5, 3, 16, 16, png))
-		except:
-		        pass
-		return res
 
 	def clear(self):
 		del self.list[:]
@@ -51,14 +64,14 @@ class PlayList(MenuList):
 		self.oldCurrPlaying = -1
 
 	def getSelection(self):
-		return self.l.getCurrentSelection() and self.l.getCurrentSelection()[0]
+		return self.l.getCurrentSelection()[0]
 
 	def addFile(self, serviceref):
-		self.list.append(self.PlaylistEntryComponent(serviceref, STATE_NONE))
+		self.list.append(PlaylistEntryComponent(serviceref, STATE_NONE))
 
 	def updateFile(self, index, newserviceref):
 		if index < len(self.list):
-		    self.list[index] = self.PlaylistEntryComponent(newserviceref, STATE_NONE)
+		    self.list[index] = PlaylistEntryComponent(newserviceref, STATE_NONE)
 
 	def deleteFile(self, index):
 		if self.currPlaying >= index:
@@ -71,22 +84,18 @@ class PlayList(MenuList):
 		self.moveToIndex(index)
 
 	def updateState(self, state):
-		self.state = state
 		if len(self.list) > self.oldCurrPlaying and self.oldCurrPlaying != -1:
-			self.list[self.oldCurrPlaying] = self.PlaylistEntryComponent(self.list[self.oldCurrPlaying][0], STATE_NONE)
+			self.list[self.oldCurrPlaying] = PlaylistEntryComponent(self.list[self.oldCurrPlaying][0], STATE_NONE)
 		if self.currPlaying != -1 and self.currPlaying < len(self.list):
-			self.list[self.currPlaying] = self.PlaylistEntryComponent(self.list[self.currPlaying][0], state)
+			self.list[self.currPlaying] = PlaylistEntryComponent(self.list[self.currPlaying][0], state)
 		self.updateList()
-
-	def isStopped(self):
-		return self.state in (STATE_STOP, STATE_NONE)
 
 	def playFile(self):
 		self.updateState(STATE_PLAY)
 
 	def pauseFile(self):
 		self.updateState(STATE_PAUSE)
-
+		
 	def stopFile(self):
 		self.updateState(STATE_STOP)
 

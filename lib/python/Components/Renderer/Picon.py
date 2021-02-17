@@ -12,7 +12,7 @@ lastPiconPath = None
 def initPiconPaths():
 	global searchPaths
 	searchPaths = []
-	for mp in ('/usr/share/enigma2/', '/'):
+	for mp in ('/usr/share/enigma2/', '/', "/media/usb"):
 		onMountpointAdded(mp)
 	for part in harddiskmanager.getMountedPartitions():
 		onMountpointAdded(part.mountpoint)
@@ -65,10 +65,18 @@ def getPiconName(serviceName):
 	sname = '_'.join(GetWithAlternative(serviceName).split(':', 10)[:10])
 	pngname = findPicon(sname)
 	if not pngname:
-		fields = sname.split('_', 3)
+		fields = sname.split('_', 10)
+		if len(fields) > 2 and fields[0] != '1':
+			#fallback to 1 for iptv services
+			fields[0] = '1'
+			pngname = findPicon('_'.join(fields))
 		if len(fields) > 2 and fields[2] != '2':
 			#fallback to 1 for tv services with nonstandard servicetypes
 			fields[2] = '1'
+			pngname = findPicon('_'.join(fields))
+		if len(fields) > 2 and fields[9] != '0':
+			#fallback to 0 for iptv buffering
+			fields[9] = '0'
 			pngname = findPicon('_'.join(fields))
 	if not pngname: # picon by channel name
 		name = ServiceReference(serviceName).getServiceName()
@@ -78,6 +86,11 @@ def getPiconName(serviceName):
 			pngname = findPicon(name)
 			if not pngname and len(name) > 2 and name.endswith('hd'):
 				pngname = findPicon(name[:-2])
+	if not pngname and len(name) > 6:
+		series = re.sub(r's[0-9]*e[0-9]*$', '', name)
+		pngname = findPicon(series)
+	if not pngname:
+		pngname = "/usr/share/enigma2/skin_default/picon_default.png"
 	return pngname
 
 class Picon(Renderer):
@@ -92,9 +105,8 @@ class Picon(Renderer):
 			if pathExists(tmp):
 				pngname = tmp
 			else:
-				pngname = resolveFilename(SCOPE_SKIN_IMAGE, "skin_default/picon_default.png")
-		if os.path.getsize(pngname):
-			self.defaultpngname = pngname
+				pngname = "/usr/share/enigma2/skin_default/picon_default.png"
+		self.defaultpngname = pngname
 
 	def addPath(self, value):
 		if pathExists(value):
@@ -124,11 +136,7 @@ class Picon(Renderer):
 				pngname = self.defaultpngname
 			if self.pngname != pngname:
 				if pngname:
-					self.instance.setScale(1)
 					self.instance.setPixmapFromFile(pngname)
-					self.instance.show()
-				else:
-					self.instance.hide()
 				self.pngname = pngname
 
 harddiskmanager.on_partition_list_change.append(onPartitionChange)

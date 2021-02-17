@@ -1,5 +1,4 @@
 from Screen import Screen
-from Screens.ParentalControlSetup import ProtectedScreen
 from Components.Sources.List import List
 from Components.ActionMap import NumberActionMap
 from Components.Sources.StaticText import StaticText
@@ -8,40 +7,62 @@ from Components.PluginComponent import plugins
 from Components.config import config
 from Components.SystemInfo import SystemInfo
 
-from Tools.BoundFunction import boundFunction
-from Tools.Directories import resolveFilename, SCOPE_SKIN
+from Tools.Directories import resolveFilename, SCOPE_SKIN, SCOPE_CURRENT_SKIN, fileExists
 
 import xml.etree.cElementTree
 
 from Screens.Setup import Setup, getSetupTitle
 
+#		<item text="TV-Mode">self.setModeTV()</item>
+#		<item text="Radio-Mode">self.setModeRadio()</item>
+#		<item text="File-Mode">self.setModeFile()</item>
+#			<item text="Sleep Timer"></item>
+
+
 # read the menu
 mdom = xml.etree.cElementTree.parse(resolveFilename(SCOPE_SKIN, 'menu.xml'))
 
+class boundFunction:
+	def __init__(self, fnc, *args):
+		self.fnc = fnc
+		self.args = args
+	def __call__(self):
+		self.fnc(*self.args)
+		
 class MenuUpdater:
 	def __init__(self):
 		self.updatedMenuItems = {}
-
+	
 	def addMenuItem(self, id, pos, text, module, screen, weight):
 		if not self.updatedMenuAvailable(id):
 			self.updatedMenuItems[id] = []
 		self.updatedMenuItems[id].append([text, pos, module, screen, weight])
-
+	
 	def delMenuItem(self, id, pos, text, module, screen, weight):
 		self.updatedMenuItems[id].remove([text, pos, module, screen, weight])
-
+	
 	def updatedMenuAvailable(self, id):
 		return self.updatedMenuItems.has_key(id)
-
+	
 	def getUpdatedMenu(self, id):
 		return self.updatedMenuItems[id]
 
 menuupdater = MenuUpdater()
 
 class MenuSummary(Screen):
-	pass
+	skin = """
+	<screen position="0,0" size="132,64">
+		<widget source="parent.title" render="Label" position="6,4" size="120,21" font="Regular;18" />
+		<widget source="parent.menu" render="Label" position="6,25" size="120,21" font="Regular;16">
+			<convert type="StringListSelection" />
+		</widget>
+		<widget source="global.CurrentTime" render="Label" position="56,46" size="82,18" font="Regular;16" >
+			<convert type="ClockToText">WithSeconds</convert>
+		</widget>
+	</screen>"""
 
-class Menu(Screen, ProtectedScreen):
+class Menu(Screen):
+
 	ALLOW_SUSPEND = True
 
 	def okbuttonClick(self):
@@ -55,16 +76,69 @@ class Menu(Screen, ProtectedScreen):
 
 	def runScreen(self, arg):
 		# arg[0] is the module (as string)
-		# arg[1] is Screen inside this module
-		#        plus possible arguments, as
-		#        string (as we want to reference
+		# arg[1] is Screen inside this module 
+		#        plus possible arguments, as 
+		#        string (as we want to reference 
 		#        stuff which is just imported)
 		# FIXME. somehow
-		if arg[0] != "":
-			exec "from " + arg[0] + " import *"
+		if str(arg[0]).find("Screens.Bh") != -1:
+			self.openBhMenu(arg[0])
+		else:
+			if arg[0] != "":
+				exec "from " + arg[0] + " import *"
 
-		self.openDialog(*eval(arg[1]))
+			self.openDialog(*eval(arg[1]))
 
+	def openBhMenu(self, module):
+		module  = module.replace("Screens", "Blackhole")
+		exec "from " + module + " import *"
+		
+		if module == "Blackhole.BhSettings":
+			self.session.openWithCallback(self.menuClosed, DeliteSettings)
+		
+		elif module == "Blackhole.BhEpgPanel":
+			self.session.openWithCallback(self.menuClosed, DeliteEpgPanel)
+			
+		elif module == "Blackhole.BhAddons":
+			self.session.openWithCallback(self.menuClosed, DeliteAddons)
+		
+		elif module == "Blackhole.BhRed":
+			exec "from Blackhole.BhUtils import BhU_check_proc_version"
+			flash = True
+			mounted = False
+			bh_ver = BhU_check_proc_version()
+			un_ver = bh_ver
+		
+			f = open("/proc/mounts",'r')
+			for line in f.readlines():
+				if line.find('/universe') != -1:
+					if line.find('ext') != -1:
+						mounted = True
+			f.close()
+		
+			if fileExists("/.meoinfo"):
+				flash = False
+		
+			if flash == True:
+				if mounted == True:
+					if fileExists("/universe/.buildv"):
+						f = open("/universe/.buildv",'r')
+						un_ver = f.readline().strip()
+						f.close()
+					else:
+						out = open("/universe/.buildv",'w')
+						out.write(bh_ver)
+						out.close()
+						system("chmod a-w /universe/.buildv")
+					if un_ver == bh_ver:
+						self.session.openWithCallback(self.menuClosed, BhRedPanel)
+					else:
+						self.session.openWithCallback(self.menuClosed, BhRedWrong)
+				else:
+					self.session.openWithCallback(self.menuClosed, BhRedDisabled, "0")
+			else:
+				self.session.openWithCallback(self.menuClosed, BhRedDisabled, "flash")
+	
 	def nothing(self): #dummy
 		pass
 
@@ -109,9 +183,6 @@ class Menu(Screen, ProtectedScreen):
 					return
 			elif not SystemInfo.get(requires, False):
 				return
-		configCondition = node.get("configcondition")
-		if configCondition and not eval(configCondition + ".value"):
-			return
 		item_text = node.get("text", "").encode("UTF-8")
 		entryID = node.get("entryID", "undefined")
 		weight = node.get("weight", 50)
@@ -152,12 +223,11 @@ class Menu(Screen, ProtectedScreen):
 
 	def __init__(self, session, parent):
 		Screen.__init__(self, session)
+		
 		list = []
-
+		
 		menuID = None
 		for x in parent:						#walk through the actual nodelist
-			if not x.tag:
-				continue
 			if x.tag == 'item':
 				item_level = int(x.get("level", 0))
 				if item_level <= config.usage.setup_level.index:
@@ -180,22 +250,44 @@ class Menu(Screen, ProtectedScreen):
 
 		if menuID is not None:
 			# plugins
+			bhorder = []
+			myfile = ""
+			myskinpath = resolveFilename(SCOPE_CURRENT_SKIN, "")
+			if myskinpath == "/usr/share/enigma2/":
+				myskinpath = "/usr/share/enigma2/skin_default/"
+			
+			if fileExists(myskinpath + "menu/menuorder.bh"):
+				myfile = myskinpath + "menu/menuorder.bh"
+			elif fileExists("/usr/share/enigma2/menuorder.bh"):
+				myfile = "/usr/share/enigma2/menuorder.bh"
+			
+			if myfile:
+				file = open(myfile, 'r')
+				for line in file.readlines():
+					parts = line.strip().split()
+					res = (parts[0], parts[1])
+					bhorder.append(res)
+					file.close()
+			
 			for l in plugins.getPluginsForMenu(menuID):
 				# check if a plugin overrides an existing menu
 				plugin_menuid = l[2]
+				weight = l[3]
 				for x in list:
 					if x[2] == plugin_menuid:
 						list.remove(x)
 						break
-				list.append((l[0], boundFunction(l[1], self.session, close=self.close), l[2], l[3] or 50))
+					for y in bhorder:
+						if y[0] == plugin_menuid:
+							weight = int(y[1])
+						
+				list.append((l[0], boundFunction(l[1], self.session), l[2], weight or 50))
 
 		# for the skin: first try a menu_<menuID>, then Menu
 		self.skinName = [ ]
 		if menuID is not None:
 			self.skinName.append("menu_" + menuID)
 		self.skinName.append("Menu")
-		self.menuID = menuID
-		ProtectedScreen.__init__(self)
 
 		# Sort by Weight
 		list.sort(key=lambda x: int(x[3]))
@@ -243,17 +335,9 @@ class Menu(Screen, ProtectedScreen):
 	def createSummary(self):
 		return MenuSummary
 
-	def isProtected(self):
-		if config.ParentalControl.setuppinactive.value:
-			if config.ParentalControl.config_sections.main_menu.value and not(hasattr(self.session, 'infobar') and self.session.infobar is None):
-				return self.menuID == "mainmenu"
-			elif config.ParentalControl.config_sections.configuration.value and self.menuID == "setup":
-				return True
-			elif config.ParentalControl.config_sections.standby_menu.value and self.menuID == "shutdown":
-				return True
 class MainMenu(Menu):
 	#add file load functions for the xml-file
-
+	
 	def __init__(self, *x):
 		self.skinName = "Menu"
 		Menu.__init__(self, *x)

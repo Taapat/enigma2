@@ -3,31 +3,45 @@ from Components.ActionMap import ActionMap
 from Components.ActionMap import NumberActionMap
 from Components.Label import Label
 
-from Components.config import config, ConfigSubsection, ConfigSelection, ConfigSubList, getConfigListEntry, KEY_LEFT, KEY_RIGHT, KEY_0, ConfigNothing, ConfigPIN
+from Components.config import config, ConfigSubsection, ConfigSelection, ConfigSubList, getConfigListEntry, KEY_LEFT, KEY_RIGHT, KEY_0, ConfigNothing, ConfigPIN, ConfigYesNo
 from Components.ConfigList import ConfigList
 
 from Components.SystemInfo import SystemInfo
+from Tools.Directories import fileExists
 
 from enigma import eTimer, eDVBCI_UI, eDVBCIInterfaces
 
-MAX_NUM_CI = 4
-
 def setCIBitrate(configElement):
-	if configElement.value == "no":
-		eDVBCI_UI.getInstance().setClockRate(configElement.slotid, eDVBCI_UI.rateNormal)
-	else:
-		eDVBCI_UI.getInstance().setClockRate(configElement.slotid, eDVBCI_UI.rateHigh)
+	eDVBCI_UI.getInstance().setClockRate(configElement.slotid, eDVBCI_UI.rateHigh if configElement.value else eDVBCI_UI.rateNormal)
+
+def setRelevantPidsRouting(configElement):
+	open(SystemInfo["CI%dRelevantPidsRoutingSupport" % configElement.slotid], "w").write("yes" if configElement.value else "no")
+
+def setdvbCiDelay(configElement):
+	open(SystemInfo["CommonInterfaceCIDelay"], "w").write(configElement.value)
+	configElement.save()
 
 def InitCiConfig():
 	config.ci = ConfigSubList()
-	for slot in range(MAX_NUM_CI):
-		config.ci.append(ConfigSubsection())
-		config.ci[slot].canDescrambleMultipleServices = ConfigSelection(choices = [("auto", _("Auto")), ("no", _("No")), ("yes", _("Yes"))], default = "auto")
-		if SystemInfo["CommonInterfaceSupportsHighBitrates"]:
-			config.ci[slot].canHandleHighBitrates = ConfigSelection(choices = [("no", _("No")), ("yes", _("Yes"))], default = "yes")
-			config.ci[slot].canHandleHighBitrates.slotid = slot
-			config.ci[slot].canHandleHighBitrates.addNotifier(setCIBitrate)
+	config.cimisc = ConfigSubsection()
+	if SystemInfo["CommonInterface"]:
+		for slot in range(SystemInfo["CommonInterface"]):
+			config.ci.append(ConfigSubsection())
+			config.ci[slot].canDescrambleMultipleServices = ConfigSelection(choices = [("auto", _("Auto")), ("no", _("No")), ("yes", _("Yes"))], default = "auto")
+			if SystemInfo["CI%dSupportsHighBitrates" % slot]:
+				config.ci[slot].canHandleHighBitrates = ConfigYesNo(default = False)
+				config.ci[slot].canHandleHighBitrates.slotid = slot
+				config.ci[slot].canHandleHighBitrates.addNotifier(setCIBitrate)
 
+			if SystemInfo["CI%dRelevantPidsRoutingSupport" % slot]:
+				config.ci[slot].relevantPidsRouting = ConfigYesNo(default = False)
+				config.ci[slot].relevantPidsRouting.slotid = slot
+				config.ci[slot].relevantPidsRouting.addNotifier(setRelevantPidsRouting)
+
+		if SystemInfo["CommonInterfaceCIDelay"]:
+			config.cimisc.dvbCiDelay = ConfigSelection(default = "256", choices = [("16"), ("32"), ("64"), ("128"), ("256")])
+			config.cimisc.dvbCiDelay.addNotifier(setdvbCiDelay)
+			
 class MMIDialog(Screen):
 	def __init__(self, session, slotid, action, handler = eDVBCI_UI.getInstance(), wait_text = _("wait for ci...") ):
 		Screen.__init__(self, session)
@@ -88,13 +102,9 @@ class MMIDialog(Screen):
 			else:
 				# unmasked pins:
 				x = ConfigPIN(0, len = pinlength)
-			x.addEndNotifier(self.pinEntered)
 			self["subtitle"].setText(entry[2])
 			list.append( getConfigListEntry("", x) )
 			self["bottom"].setText(_("please press OK when ready"))
-
-	def pinEntered(self, value):
-		self.okbuttonClick()
 
 	def okbuttonClick(self):
 		self.timer.stop()
@@ -240,13 +250,6 @@ class CiMessageHandler:
 		self.ci = { }
 		self.dlgs = { }
 		eDVBCI_UI.getInstance().ciStateChanged.get().append(self.ciStateChanged)
-		SystemInfo["CommonInterface"] = eDVBCIInterfaces.getInstance().getNumOfSlots() > 0
-		try:
-			file = open("/proc/stb/tsmux/ci0_tsclk", "r")
-			file.close()
-			SystemInfo["CommonInterfaceSupportsHighBitrates"] = True
-		except:
-			SystemInfo["CommonInterfaceSupportsHighBitrates"] = False
 
 	def setSession(self, session):
 		self.session = session
@@ -288,29 +291,43 @@ class CiSelection(Screen):
 
 		self.dlg = None
 		self.state = { }
-		self.list = [ ]
+		self.slots = []
+		self.HighBitrateEntry = {}
+		self.RelevantPidsRoutingEntry = {}
 
-		for slot in range(MAX_NUM_CI):
+		self.entryData = []
+		self.DVBCiDelayEntry = None
+
+		self.list = [ ]
+		self["entries"] = ConfigList(self.list)
+		self["entries"].list = self.list
+		self["entries"].l.setList(self.list)
+		self["text"] = Label(_("Slot %d")%(1))
+		self.onLayoutFinish.append(self.initialUpdate)
+
+	def initialUpdate(self):
+		for slot in range(SystemInfo["CommonInterface"]):
 			state = eDVBCI_UI.getInstance().getState(slot)
 			if state != -1:
-				self.appendEntries(slot, state)
+				self.slots.append(slot)
+				self.state[slot] = state
+				self.createEntries(slot)
 				CiHandler.registerCIMessageHandler(slot, self.ciStateChanged)
 
-		menuList = ConfigList(self.list)
-		menuList.list = self.list
-		menuList.l.setList(self.list)
-		self["entries"] = menuList
-		self["entries"].onSelectionChanged.append(self.selectionChanged)
-		self["text"] = Label(_("Slot %d")%(1))
+		self.slots.sort()
+		self.updateEntries()
+		if self.slots:
+			self["text"].setText(_("Slot %d")% (int(self.slots[0])+1))
 
 	def selectionChanged(self):
-		cur_idx = self["entries"].getCurrentIndex()
-		self["text"].setText(_("Slot %d")%((cur_idx / 5)+1))
+		entryData = self.entryData[self["entries"].getCurrentIndex()]
+		self["text"].setText(_("Slot %d")%(entryData[1] + 1))
 
 	def keyConfigEntry(self, key):
+		current = self["entries"].getCurrent()
 		try:
 			self["entries"].handleKey(key)
-			self["entries"].getCurrent()[1].save()
+			current[1].save()
 		except:
 			pass
 
@@ -320,47 +337,48 @@ class CiSelection(Screen):
 	def keyRight(self):
 		self.keyConfigEntry(KEY_RIGHT)
 
-	def appendEntries(self, slot, state):
-		self.state[slot] = state
-		self.list.append( (_("Reset"), ConfigNothing(), 0, slot) )
-		self.list.append( (_("Init"), ConfigNothing(), 1, slot) )
+	def createEntries(self, slot):
+		if SystemInfo["CI%dSupportsHighBitrates" % slot]:
+			self.HighBitrateEntry[slot] = getConfigListEntry(_("High bitrate support"), config.ci[slot].canHandleHighBitrates)
+		if SystemInfo["CI%dRelevantPidsRoutingSupport" % slot]:
+			self.RelevantPidsRoutingEntry[slot] = getConfigListEntry(_("PID Filtering"), config.ci[slot].relevantPidsRouting)
+		if SystemInfo["CommonInterfaceCIDelay"] and self.DVBCiDelayEntry is None:
+			self.DVBCiDelayEntry = getConfigListEntry(_("DVB CI Delay"), config.cimisc.dvbCiDelay)
 
-		if self.state[slot] == 0:			#no module
-			self.list.append( (_("no module found"), ConfigNothing(), 2, slot) )
-		elif self.state[slot] == 1:		#module in init
-			self.list.append( (_("init module"), ConfigNothing(), 2, slot) )
-		elif self.state[slot] == 2:		#module ready
-			#get appname
-			appname = eDVBCI_UI.getInstance().getAppName(slot)
-			self.list.append( (appname, ConfigNothing(), 2, slot) )
+	def addToList(self, data, action, slotid):
+		self.list.append(data)
+		self.entryData.append((action, slotid))
 
-		self.list.append(getConfigListEntry(_("Multiple service support"), config.ci[slot].canDescrambleMultipleServices))
-		if SystemInfo["CommonInterfaceSupportsHighBitrates"]:
-			self.list.append(getConfigListEntry(_("High bitrate support"), config.ci[slot].canHandleHighBitrates))
+	def updateEntries(self):
+		self.list = []
+		self.entryData = []
 
-	def updateState(self, slot):
-		state = eDVBCI_UI.getInstance().getState(slot)
-		self.state[slot] = state
+		for slot in self.slots:
+			self.addToList((_("Reset"), ConfigNothing()), 0, slot)
+			self.addToList((_("Init"), ConfigNothing()), 1, slot)
 
-		slotidx=0
-		while len(self.list[slotidx]) < 3 or self.list[slotidx][3] != slot:
-			slotidx += 1
+			if self.state[slot] == 0:			#no module
+				self.addToList((_("no module found"), ConfigNothing()), 2, slot)
+			elif self.state[slot] == 1:		#module in init
+				self.addToList((_("init module"), ConfigNothing()), 2, slot)
+			elif self.state[slot] == 2:		#module ready
+				#get appname
+				appname = eDVBCI_UI.getInstance().getAppName(slot)
+				self.addToList((appname, ConfigNothing()), 2, slot)
 
-		slotidx += 1 # do not change Reset
-		slotidx += 1 # do not change Init
+			self.addToList(getConfigListEntry(_("Multiple service support"), config.ci[slot].canDescrambleMultipleServices), -1, slot)
 
-		if state == 0:			#no module
-			self.list[slotidx] = (_("no module found"), ConfigNothing(), 2, slot)
-		elif state == 1:		#module in init
-			self.list[slotidx] = (_("init module"), ConfigNothing(), 2, slot)
-		elif state == 2:		#module ready
-			#get appname
-			appname = eDVBCI_UI.getInstance().getAppName(slot)
-			self.list[slotidx] = (appname, ConfigNothing(), 2, slot)
+			if SystemInfo["CI%dSupportsHighBitrates" % slot]:
+				self.addToList(self.HighBitrateEntry[slot], -1, slot)
+			if SystemInfo["CI%dRelevantPidsRoutingSupport" % slot]:
+				self.addToList(self.RelevantPidsRoutingEntry[slot], -1, slot)
+			if SystemInfo["CommonInterfaceCIDelay"]:
+				self.addToList(self.DVBCiDelayEntry, -1, slot)
 
-		lst = self["entries"]
-		lst.list = self.list
-		lst.l.setList(self.list)
+		self["entries"].list = self.list
+		self["entries"].l.setList(self.list)
+		if self.selectionChanged not in self["entries"].onSelectionChanged:
+			self["entries"].onSelectionChanged.append(self.selectionChanged)
 
 	def ciStateChanged(self, slot):
 		if self.dlg:
@@ -370,25 +388,27 @@ class CiSelection(Screen):
 			if self.state[slot] != state:
 				#print "something happens"
 				self.state[slot] = state
-				self.updateState(slot)
+				self.updateEntries()
 
 	def dlgClosed(self, slot):
 		self.dlg = None
 
 	def okbuttonClick(self):
 		cur = self["entries"].getCurrent()
-		if cur and len(cur) > 2:
-			action = cur[2]
-			slot = cur[3]
+		if cur:
+			idx = self["entries"].getCurrentIndex()
+			entryData = self.entryData[idx]
+			action = entryData[0]
+			slot = entryData[1]
 			if action == 0:		#reset
 				eDVBCI_UI.getInstance().setReset(slot)
 			elif action == 1:		#init
 				eDVBCI_UI.getInstance().setInit(slot)
-			elif self.state[slot] == 2:
+			elif action == 2 and self.state[slot] == 2:
 				self.dlg = self.session.openWithCallback(self.dlgClosed, MMIDialog, slot, action)
 
 	def cancel(self):
-		for slot in range(MAX_NUM_CI):
+		for slot in range(SystemInfo["CommonInterface"]):
 			state = eDVBCI_UI.getInstance().getState(slot)
 			if state != -1:
 				CiHandler.unregisterCIMessageHandler(slot)

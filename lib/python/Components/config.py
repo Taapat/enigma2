@@ -203,11 +203,7 @@ class choicesList(object): # XXX: we might want a better name for this
 		return self.choices.keys()[index]
 
 	def index(self, value):
-		try:
-			return self.__list__().index(value)
-		except (ValueError, IndexError):
-			# occurs e.g. when default is not in list
-			return 0
+		return self.__list__().index(value)
 
 	def __setitem__(self, index, value):
 		if self.type == choicesList.LIST_TYPE_LIST:
@@ -327,16 +323,15 @@ class ConfigSelection(ConfigElement):
 	# GUI
 	def handleKey(self, key):
 		nchoices = len(self.choices)
-		if nchoices > 1:
-			i = self.choices.index(self.value)
-			if key == KEY_LEFT:
-				self.value = self.choices[(i + nchoices - 1) % nchoices]
-			elif key == KEY_RIGHT:
-				self.value = self.choices[(i + 1) % nchoices]
-			elif key == KEY_HOME:
-				self.value = self.choices[0]
-			elif key == KEY_END:
-				self.value = self.choices[nchoices - 1]
+		i = self.choices.index(self.value)
+		if key == KEY_LEFT:
+			self.value = self.choices[(i + nchoices - 1) % nchoices]
+		elif key == KEY_RIGHT:
+			self.value = self.choices[(i + 1) % nchoices]
+		elif key == KEY_HOME:
+			self.value = self.choices[0]
+		elif key == KEY_END:
+			self.value = self.choices[nchoices - 1]
 
 	def selectNext(self):
 		nchoices = len(self.choices)
@@ -383,7 +378,7 @@ class ConfigSelection(ConfigElement):
 # several customized versions exist for different
 # descriptions.
 #
-boolean_descriptions = {False: _("false"), True: _("true")}
+boolean_descriptions = {False: "false", True: "true"}
 class ConfigBoolean(ConfigElement):
 	def __init__(self, default = False, descriptions = boolean_descriptions):
 		ConfigElement.__init__(self)
@@ -795,6 +790,8 @@ class ConfigInteger(ConfigSequence):
 class ConfigPIN(ConfigInteger):
 	def __init__(self, default, len = 4, censor = ""):
 		assert isinstance(default, int), "ConfigPIN default must be an integer"
+		if default == -1:
+			default = "aaaa"
 		ConfigSequence.__init__(self, seperator = ":", limits = [(0, (10**len)-1)], censor_char = censor, default = default)
 		self.len = len
 
@@ -809,6 +806,90 @@ class ConfigFloat(ConfigSequence):
 		return float(self.value[1] / float(self.limits[1][1] + 1) + self.value[0])
 
 	float = property(getFloat)
+
+#### vuplus
+#Normal, LShift(42), RAlt(100), LShift+RAlt(100+42)/LArt(56)
+vukeymap_us_de = {
+	  2:[u"1", u"!", None, None]
+	, 3:[u"2", u"@", None, None]
+	, 4:[u"3", u"#", None, '\xc2\xa3']
+	, 5:[u"4", u"$", '\xc3\xa7', None]
+	, 6:[u"5", u"%", '\xc3\xbc', '\xe2\x82\xac']
+	, 7:[u"6", u"^", '\xc3\xb6', None]
+	, 8:[u"7", u"&", '\xc3\xa4', None]
+	, 9:[u"8", u"*", '\xc3\xa0', None]
+	,10:[u"9", u"(", '\xc3\xa8', None]
+	,11:[u"0", u")", '\xc3\xa9', None]
+	,12:[u"-", u"_", None, None]
+	,13:[u"=", u"+", "~", None]
+	,16:[u"q", u"Q", None, None]
+	,17:[u"w", u"W", None, None]
+	,18:[u"e", u"E", '\xe2\x82\xac', None]
+	,19:[u"r", u"R", None, None]
+	,20:[u"t", u"T", None, None]
+	,21:[u"y", u"Y", None, None]
+	,22:[u"u", u"U", None, None]
+	,23:[u"i", u"I", None, None]
+	,24:[u"o", u"O", None, None]
+	,25:[u"p", u"P", None, None]
+	,26:[u"[", u"{", None, None]
+	,27:[u"]", u"}", None, None]
+	,30:[u"a", u"A", None, None]
+	,31:[u"s", u"S", '\xc3\x9f', None]
+	,32:[u"d", u"D", None, None]
+	,33:[u"f", u"F", None, None]
+	,34:[u"g", u"G", None, None]
+	,35:[u"h", u"H", None, None]
+	,36:[u"j", u"J", None, None]
+	,37:[u"k", u"K", None, None]
+	,38:[u"l", u"L", None, None]
+	,39:[u";", u":", None, None]
+	,40:[u"\'", u"\"", None, None]
+	,41:['\xc2\xa7', '\xc2\xb0', '\xc2\xac', None]
+	,43:[u"\\", u"|", None, None]
+	,44:[u"z", u"Z", None, u"<"]
+	,45:[u"x", u"X", None, u">"]
+	,46:[u"c", u"C", '\xc2\xa2', None]
+	,47:[u"v", u"V", None, None]
+	,48:[u"b", u"B", None, None]
+	,49:[u"n", u"N", None, None]
+	,50:[u"m", u"M", '\xc2\xb5', None]
+	,51:[u",", "<", None, None]
+	,52:[u".", ">", None, None]
+	,53:[u"/", u"?", None, None]
+	,57:[u" ", None, None, None]
+}
+vumapidx = 0
+vukeymap = vukeymap_us_de
+rckeyboard_enable = False
+#if file("/proc/stb/info/vumodel").read().strip() not in ["bm750", "solo", "uno"]:
+	#rckeyboard_enable = True
+
+def getCharValue(code):
+	global vumapidx
+	global vukeymap
+	global rckeyboard_enable
+	print "got ascii code : %d [%d]"%(code, vumapidx)
+	if rckeyboard_enable:
+		if code == 0:
+			vumapidx = 0
+			return None
+		elif code == 42:
+			vumapidx += 1
+			return None
+		elif code == 56:
+			vumapidx += 3
+			return None
+		elif code == 100:
+			vumapidx += 2
+			return None
+		try:
+			return vukeymap[code][vumapidx]
+		except:
+			return None
+	else:
+		return unichr(getPrevAsciiCode())
+#### vuplus
 
 # an editable text...
 class ConfigText(ConfigElement, NumericalTextInput):
@@ -918,8 +999,12 @@ class ConfigText(ConfigElement, NumericalTextInput):
 			self.overwrite = not self.overwrite
 		elif key == KEY_ASCII:
 			self.timeout()
-			newChar = unichr(getPrevAsciiCode())
-			if not self.useableChars or newChar in self.useableChars:
+			#### vuplus
+			#newChar = unichr(getPrevAsciiCode())
+			#if not self.useableChars or newChar in self.useableChars:
+			newChar = getCharValue(getPrevAsciiCode())
+			if (newChar is not None) and (not self.useableChars or newChar in self.useableChars):
+				#### vuplus
 				if self.allmarked:
 					self.deleteAllChars()
 					self.allmarked = False
@@ -949,11 +1034,7 @@ class ConfigText(ConfigElement, NumericalTextInput):
 		self.changed()
 
 	def getValue(self):
-		try:
-			return self.text.encode("utf-8")
-		except UnicodeDecodeError:
-			print "Broken UTF8!"
-			return self.text
+		return self.text.encode("utf-8")
 
 	def setValue(self, val):
 		try:
@@ -987,6 +1068,7 @@ class ConfigText(ConfigElement, NumericalTextInput):
 		if session is not None:
 			from Screens.NumericalTextInputHelpDialog import NumericalTextInputHelpDialog
 			self.help_window = session.instantiateDialog(NumericalTextInputHelpDialog, self)
+			self.help_window.setAnimationMode(0)
 			self.help_window.show()
 
 	def onDeselect(self, session):
@@ -1040,7 +1122,7 @@ class ConfigSelectionNumber(ConfigSelection):
 		while step <= max:
 			choices.append(str(step))
 			step += stepwidth
-
+		
 		ConfigSelection.__init__(self, choices, default)
 
 	def getValue(self):
@@ -1097,7 +1179,7 @@ class ConfigNumber(ConfigText):
 					return
 			else:
 				ascii = getKeyNumber(key) + 48
-			newChar = unichr(ascii)
+  			newChar = unichr(ascii)
 			if self.allmarked:
 				self.deleteAllChars()
 				self.allmarked = False
@@ -1142,7 +1224,7 @@ class ConfigDirectory(ConfigText):
 
 	def getMulti(self, selected):
 		if self.text == "":
-			return ("mtext"[1-selected:], _("List of storage devices"), range(0))
+			return ("mtext"[1-selected:], _("List of Storage Devices"), range(0))
 		else:
 			return ConfigText.getMulti(self, selected)
 
@@ -1633,21 +1715,21 @@ class Config(ConfigSubsection):
 
 	def unpickle(self, lines, base_file=True):
 		tree = { }
-		configbase = tree.setdefault("config", {})
 		for l in lines:
 			if not l or l[0] == '#':
 				continue
 
-			result = l.split('=', 1)
-			if len(result) != 2:
-				continue
-			(name, val) = result
-			val = val.strip()
+			n = l.find('=')
+			name = l[:n]
+			val = l[n+1:].strip()
 
 			names = name.split('.')
-			base = configbase
+#			if val.find(' ') != -1:
+#				val = val[:val.find(' ')]
 
-			for n in names[1:-1]:
+			base = tree
+
+			for n in names[:-1]:
 				base = base.setdefault(n, {})
 
 			base[names[-1]] = val
@@ -1669,18 +1751,16 @@ class Config(ConfigSubsection):
 	def saveToFile(self, filename):
 		text = self.pickle()
 		try:
-			import os
-			f = open(filename + ".writing", "w")
+			f = open(filename, "w")
 			f.write(text)
-			f.flush()
-			os.fsync(f.fileno())
 			f.close()
-			os.rename(filename + ".writing", filename)
 		except IOError:
 			print "Config: Couldn't write %s" % filename
 
-	def loadFromFile(self, filename, base_file=True):
-		self.unpickle(open(filename, "r"), base_file)
+	def loadFromFile(self, filename, base_file=False):
+		f = open(filename, "r")
+		self.unpickle(f.readlines(), base_file)
+		f.close()
 
 config = Config()
 config.misc = ConfigSubsection()
@@ -1755,84 +1835,3 @@ def updateConfigElement(element, newelement):
 ##configfile.save()
 #config.save()
 #print config.pickle()
-
-cec_limits = [(0,15),(0,15),(0,15),(0,15)]
-class ConfigCECAddress(ConfigSequence):
-	def __init__(self, default, auto_jump = False):
-		ConfigSequence.__init__(self, seperator = ".", limits = cec_limits, default = default)
-		self.block_len = [len(str(x[1])) for x in self.limits]
-		self.marked_block = 0
-		self.overwrite = True
-		self.auto_jump = auto_jump
-
-	def handleKey(self, key):
-		if key == KEY_LEFT:
-			if self.marked_block > 0:
-				self.marked_block -= 1
-			self.overwrite = True
-
-		elif key == KEY_RIGHT:
-			if self.marked_block < len(self.limits)-1:
-				self.marked_block += 1
-			self.overwrite = True
-
-		elif key == KEY_HOME:
-			self.marked_block = 0
-			self.overwrite = True
-
-		elif key == KEY_END:
-			self.marked_block = len(self.limits)-1
-			self.overwrite = True
-
-		elif key in KEY_NUMBERS or key == KEY_ASCII:
-			if key == KEY_ASCII:
-				code = getPrevAsciiCode()
-				if code < 48 or code > 57:
-					return
-				number = code - 48
-			else:
-				number = getKeyNumber(key)
-			oldvalue = self._value[self.marked_block]
-
-			if self.overwrite:
-				self._value[self.marked_block] = number
-				self.overwrite = False
-			else:
-				oldvalue *= 10
-				newvalue = oldvalue + number
-				if self.auto_jump and newvalue > self.limits[self.marked_block][1] and self.marked_block < len(self.limits)-1:
-					self.handleKey(KEY_RIGHT)
-					self.handleKey(key)
-					return
-				else:
-					self._value[self.marked_block] = newvalue
-
-			if len(str(self._value[self.marked_block])) >= self.block_len[self.marked_block]:
-				self.handleKey(KEY_RIGHT)
-
-			self.validate()
-			self.changed()
-
-	def genText(self):
-		value = ""
-		block_strlen = []
-		for i in self._value:
-			block_strlen.append(len(str(i)))
-			if value:
-				value += self.seperator
-			value += str(i)
-		leftPos = sum(block_strlen[:(self.marked_block)])+self.marked_block
-		rightPos = sum(block_strlen[:(self.marked_block+1)])+self.marked_block
-		mBlock = range(leftPos, rightPos)
-		return (value, mBlock)
-
-	def getMulti(self, selected):
-		(value, mBlock) = self.genText()
-		if self.enabled:
-			return ("mtext"[1-selected:], value, mBlock)
-		else:
-			return ("text", value)
-
-	def getHTML(self, id):
-		# we definitely don't want leading zeros
-		return '.'.join(["%d" % d for d in self.value])

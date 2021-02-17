@@ -69,13 +69,11 @@ class JobView(InfoBarNotifications, Screen, ConfigListScreen):
 	def keyRight(self):
 		ConfigListScreen.keyRight(self)
 		self.setupList()
-
+	
 	def windowShow(self):
-		job_manager.visible = True
 		self.job.state_changed.append(self.state_changed)
 
 	def windowHide(self):
-		job_manager.visible = False
 		if len(self.job.state_changed) > 0:
 		    self.job.state_changed.remove(self.state_changed)
 
@@ -109,8 +107,6 @@ class JobView(InfoBarNotifications, Screen, ConfigListScreen):
 	def ok(self):
 		if self.job.status in (self.job.FINISHED, self.job.FAILED):
 			self.close(False)
-		else:
-			self.background()
 
 	def abort(self):
 		if self.job.status == self.job.NOT_STARTED:
@@ -130,17 +126,17 @@ class JobView(InfoBarNotifications, Screen, ConfigListScreen):
 		from Screens.MessageBox import MessageBox
 		if self.settings.afterEvent.getValue() == "deepstandby":
 			if not Screens.Standby.inTryQuitMainloop:
-				Notifications.AddNotificationWithCallback(self.sendTryQuitMainloopNotification, MessageBox, _("A sleep timer wants to shut down\nyour receiver. Shutdown now?"), timeout = 20)
+				Notifications.AddNotificationWithCallback(self.sendTryQuitMainloopNotification, MessageBox, _("A sleep timer wants to shut down\nyour STB. Shutdown now?"), timeout = 20)
 		elif self.settings.afterEvent.getValue() == "standby":
 			if not Screens.Standby.inStandby:
-				Notifications.AddNotificationWithCallback(self.sendStandbyNotification, MessageBox, _("A sleep timer wants to set your\nreceiver to standby. Do that now?"), timeout = 20)
+				Notifications.AddNotificationWithCallback(self.sendStandbyNotification, MessageBox, _("A sleep timer wants to set your\nSTB to standby. Do that now?"), timeout = 20)
 
 	def checkNotifications(self):
 		InfoBarNotifications.checkNotifications(self)
 		if Notifications.notifications == []:
 			if self.settings.afterEvent.getValue() == "close" and self.job.status == self.job.FAILED:
 				self.close(False)
-
+		
 	def sendStandbyNotification(self, answer):
 		if answer:
 			Notifications.AddNotification(Screens.Standby.Standby)

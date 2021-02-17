@@ -1,7 +1,6 @@
 from Screen import Screen
 from Components.ActionMap import NumberActionMap
 from Components.config import config, ConfigNothing
-from Components.Label import Label
 from Components.SystemInfo import SystemInfo
 from Components.ConfigList import ConfigListScreen
 from Components.Sources.StaticText import StaticText
@@ -36,6 +35,7 @@ class SetupError(Exception):
 class SetupSummary(Screen):
 
 	def __init__(self, session, parent):
+
 		Screen.__init__(self, session, parent = parent)
 		self["SetupTitle"] = StaticText(_(parent.setup_title))
 		self["SetupEntry"] = StaticText("")
@@ -44,21 +44,17 @@ class SetupSummary(Screen):
 		self.onHide.append(self.removeWatcher)
 
 	def addWatcher(self):
-		if hasattr(self.parent,"onChangedEntry"):
-			self.parent.onChangedEntry.append(self.selectionChanged)
-			self.parent["config"].onSelectionChanged.append(self.selectionChanged)
-			self.selectionChanged()
+		self.parent.onChangedEntry.append(self.selectionChanged)
+		self.parent["config"].onSelectionChanged.append(self.selectionChanged)
+		self.selectionChanged()
 
 	def removeWatcher(self):
-		if hasattr(self.parent,"onChangedEntry"):
-			self.parent.onChangedEntry.remove(self.selectionChanged)
-			self.parent["config"].onSelectionChanged.remove(self.selectionChanged)
+		self.parent.onChangedEntry.remove(self.selectionChanged)
+		self.parent["config"].onSelectionChanged.remove(self.selectionChanged)
 
 	def selectionChanged(self):
 		self["SetupEntry"].text = self.parent.getCurrentEntry()
 		self["SetupValue"].text = self.parent.getCurrentValue()
-		if hasattr(self.parent,"getCurrentDescription") and self.parent.has_key("description"):
-			self.parent["description"].text = self.parent.getCurrentDescription()
 
 class Setup(ConfigListScreen, Screen):
 
@@ -72,6 +68,17 @@ class Setup(ConfigListScreen, Screen):
 		self.refill(list)
 		self["config"].setList(list)
 
+	def removeEntryNotifier(self):
+		if self.needEntryChange:
+			for item in self.needEntryChange:
+				if self.entryChanged in item.notifiers:
+					item.notifiers.remove(self.entryChanged)
+
+	def entryChanged(self, configElement):
+		list = []
+		self.refill(list)
+		self["config"].setList(list)
+
 	def refill(self, list):
 		xmldata = setupdom.getroot()
 		for x in xmldata.findall("setup"):
@@ -79,12 +86,15 @@ class Setup(ConfigListScreen, Screen):
 				continue
 			self.addItems(list, x);
 			self.setup_title = x.get("title", "").encode("UTF-8")
-			self.seperation = int(x.get('separation', '0'))
 
 	def __init__(self, session, setup):
 		Screen.__init__(self, session)
 		# for the skin: first try a setup_<setupID>, then Setup
 		self.skinName = ["setup_" + setup, "Setup" ]
+
+		self.onChangedEntry = [ ]
+
+		self.needEntryChange = [ ]
 
 		self.setup = setup
 		list = []
@@ -93,13 +103,11 @@ class Setup(ConfigListScreen, Screen):
 		#check for list.entries > 0 else self.close
 		self["key_red"] = StaticText(_("Cancel"))
 		self["key_green"] = StaticText(_("OK"))
-		self["description"] = Label("")
 
-		self["actions"] = NumberActionMap(["SetupActions", "MenuActions"],
+		self["actions"] = NumberActionMap(["SetupActions"], 
 			{
 				"cancel": self.keyCancel,
 				"save": self.keySave,
-				"menu": self.closeRecursive,
 			}, -2)
 
 		ConfigListScreen.__init__(self, list, session = session, on_change = self.changedEntry)
@@ -110,10 +118,23 @@ class Setup(ConfigListScreen, Screen):
 	def layoutFinished(self):
 		self.setTitle(_(self.setup_title))
 
+	# for summary:
+	def changedEntry(self):
+		for x in self.onChangedEntry:
+			x()
+
+	def getCurrentEntry(self):
+		return self["config"].getCurrent()[0]
+
+	def getCurrentValue(self):
+		return str(self["config"].getCurrent()[1].getText())
+
+	def createSummary(self):
+		return SetupSummary
+
 	def addItems(self, list, parentNode):
+		self.needEntryChange = [ ]
 		for x in parentNode:
-			if not x.tag:
-				continue
 			if x.tag == 'item':
 				item_level = int(x.get("level", 0))
 
@@ -129,7 +150,6 @@ class Setup(ConfigListScreen, Screen):
 					continue;
 
 				item_text = _(x.get("text", "??").encode("UTF-8"))
-				item_description = _(x.get("description", " ").encode("UTF-8"))
 				b = eval(x.text or "");
 				if b == "":
 					continue
@@ -138,7 +158,15 @@ class Setup(ConfigListScreen, Screen):
 				# the first b is the item itself, ignored by the configList.
 				# the second one is converted to string.
 				if not isinstance(item, ConfigNothing):
-					list.append( (item_text, item, item_description) )
+					list.append( (item_text, item) )
+
+					needentrychange = x.get("entrychange")
+					if needentrychange == "yes":
+						self.needEntryChange.append(item)
+						if not self.entryChanged in item.notifiers:
+							item.notifiers.append(self.entryChanged)
+						if not self.removeEntryNotifier in self.onClose:
+							self.onClose.append(self.removeEntryNotifier)
 
 def getSetupTitle(id):
 	xmldata = setupdom.getroot()

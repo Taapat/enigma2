@@ -15,7 +15,7 @@ class ConfigEntryTest(Converter, object):
 		if len(args) < 2:
 			self.argerror = True
 		else:
-			if "config." in args[0]:
+			if args[0].find("config.") != -1:
 				self.configKey = args[0]
 				self.configValue = args[1]
 				if len(args) > 2:

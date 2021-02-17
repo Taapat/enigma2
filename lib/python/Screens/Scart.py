@@ -51,3 +51,4 @@ class Scart(Screen):
 						notification[1].close()
 				except:
 					print "other notification is open. try another one."
+			

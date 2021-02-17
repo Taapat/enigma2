@@ -2,16 +2,14 @@
 from enigma import eListboxPythonMultiContent, gFont, RT_HALIGN_CENTER, RT_VALIGN_CENTER, getPrevAsciiCode
 from Screen import Screen
 from Components.Language import language
-from Components.ActionMap import NumberActionMap
+from Components.ActionMap import ActionMap
 from Components.Sources.StaticText import StaticText
-from Components.Input import Input
 from Components.Label import Label
 from Components.Pixmap import Pixmap
 from Components.MenuList import MenuList
 from Components.MultiContent import MultiContentEntryText, MultiContentEntryPixmapAlphaTest
 from Tools.Directories import resolveFilename, SCOPE_CURRENT_SKIN
 from Tools.LoadPixmap import LoadPixmap
-from Tools.NumericalTextInput import NumericalTextInput
 import skin
 
 class VirtualKeyBoardList(MenuList):
@@ -21,62 +19,87 @@ class VirtualKeyBoardList(MenuList):
 		self.l.setFont(0, gFont(font[0], font[1]))
 		self.l.setItemHeight(font[2])
 
-class VirtualKeyBoardEntryComponent:
-	pass
+def VirtualKeyBoardEntryComponent(keys, selectedKey,shiftMode=False):
+	key_backspace = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_backspace.png"))
+	key_bg = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_bg.png"))
+	key_clr = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_clr.png"))
+	key_esc = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_esc.png"))
+	key_ok = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_ok.png"))
+	key_sel = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_sel.png"))
+	key_shift = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_shift.png"))
+	key_shift_sel = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_shift_sel.png"))
+	key_space = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_space.png"))
+	res = [ (keys) ]
+	
+	x = 0
+	count = 0
+	if shiftMode:
+		shiftkey_png = key_shift_sel
+	else:
+		shiftkey_png = key_shift
+	for key in keys:
+		width = None
+		if key == "EXIT":
+			width = key_esc.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_esc))
+		elif key == "BACKSPACE":
+			width = key_backspace.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_backspace))
+		elif key == "CLEAR":
+			width = key_clr.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_clr))
+		elif key == "SHIFT":
+			width = shiftkey_png.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=shiftkey_png))
+		elif key == "SPACE":
+			width = key_space.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_space))
+		elif key == "OK":
+			width = key_ok.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_ok))
+		#elif key == "<-":
+		#	res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(45, 45), png=key_left))
+		#elif key == "->":
+		#	res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(45, 45), png=key_right))
+		
+		else:
+			width = key_bg.size().width()
+			res.extend((
+				MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_bg),
+				MultiContentEntryText(pos=(x, 0), size=(width, 45), font=0, text=key.encode("utf-8"), flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER)
+			))
+		
+		if selectedKey == count:
+			width = key_sel.size().width()
+			res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, 45), png=key_sel))
+
+		if width is not None:
+			x += width
+		else:
+			x += 45
+		count += 1
+	
+	return res
+
 
 class VirtualKeyBoard(Screen):
 
-	def __init__(self, session, title="", **kwargs):
+	def __init__(self, session, title="", text=""):
 		Screen.__init__(self, session)
 		self.keys_list = []
 		self.shiftkeys_list = []
 		self.lang = language.getLanguage()
 		self.nextLang = None
 		self.shiftMode = False
+		self.text = text
 		self.selectedKey = 0
-		self.smsChar = None
-		self.sms = NumericalTextInput(self.smsOK)
-
-		self.key_bg = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_bg.png"))
-		self.key_sel = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_sel.png"))
-		self.key_backspace = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_backspace.png"))
-		self.key_all = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_all.png"))
-		self.key_clr = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_clr.png"))
-		self.key_esc = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_esc.png"))
-		self.key_ok = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_ok.png"))
-		self.key_shift = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_shift.png"))
-		self.key_shift_sel = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_shift_sel.png"))
-		self.key_space = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_space.png"))
-		self.key_left = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_left.png"))
-		self.key_right = LoadPixmap(path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/vkey_right.png"))
-
-		self.keyImages =  {
-				"BACKSPACE": self.key_backspace,
-				"ALL": self.key_all,
-				"EXIT": self.key_esc,
-				"OK": self.key_ok,
-				"SHIFT": self.key_shift,
-				"SPACE": self.key_space,
-				"LEFT": self.key_left,
-				"RIGHT": self.key_right
-			}
-		self.keyImagesShift = {
-				"BACKSPACE": self.key_backspace,
-				"CLEAR": self.key_clr,
-				"EXIT": self.key_esc,
-				"OK": self.key_ok,
-				"SHIFT": self.key_shift_sel,
-				"SPACE": self.key_space,
-				"LEFT": self.key_left,
-				"RIGHT": self.key_right
-			}
-
+		
 		self["country"] = StaticText("")
 		self["header"] = Label(title)
-		self["text"] = Input(currPos=len(kwargs.get("text", "").decode("utf-8",'ignore')), allMarked=False, **kwargs)
+		self["text"] = Label(self.text)
 		self["list"] = VirtualKeyBoardList([])
-
-		self["actions"] = NumberActionMap(["OkCancelActions", "WizardActions", "ColorActions", "KeyboardInputActions", "InputBoxActions", "InputAsciiActions"],
+		
+		self["actions"] = ActionMap(["OkCancelActions", "WizardActions", "ColorActions", "KeyboardInputActions", "InputBoxActions", "InputAsciiActions"],
 			{
 				"gotAsciiCode": self.keyGotAscii,
 				"ok": self.okClicked,
@@ -85,34 +108,16 @@ class VirtualKeyBoard(Screen):
 				"right": self.right,
 				"up": self.up,
 				"down": self.down,
-				"red": self.exit,
+				"red": self.backClicked,
 				"green": self.ok,
 				"yellow": self.switchLang,
-				"blue": self.shiftClicked,
 				"deleteBackward": self.backClicked,
-				"deleteForward": self.forwardClicked,
-				"back": self.exit,
-				"pageUp": self.cursorRight,
-				"pageDown": self.cursorLeft,
-				"1": self.keyNumberGlobal,
-				"2": self.keyNumberGlobal,
-				"3": self.keyNumberGlobal,
-				"4": self.keyNumberGlobal,
-				"5": self.keyNumberGlobal,
-				"6": self.keyNumberGlobal,
-				"7": self.keyNumberGlobal,
-				"8": self.keyNumberGlobal,
-				"9": self.keyNumberGlobal,
-				"0": self.keyNumberGlobal,
+				"back": self.exit				
 			}, -2)
 		self.setLang()
 		self.onExecBegin.append(self.setKeyboardModeAscii)
 		self.onLayoutFinish.append(self.buildVirtualKeyBoard)
-		self.onClose.append(self.__onClose)
-
-	def __onClose(self):
-		self.sms.timer.stop()
-
+	
 	def switchLang(self):
 		self.lang = self.nextLang
 		self.setLang()
@@ -124,14 +129,14 @@ class VirtualKeyBoard(Screen):
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
 				[u"q", u"w", u"e", u"r", u"t", u"z", u"u", u"i", u"o", u"p", u"ü", u"+"],
 				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"ö", u"ä", u"#"],
-				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"ALL"],
-				[u"SHIFT", u"SPACE", u"@", u"ß", u"OK", u"LEFT", u"RIGHT"]]
+				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
+				[u"SHIFT", u"SPACE", u"@", u"ß", u"OK"]]
 			self.shiftkeys_list = [
 				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
 				[u"Q", u"W", u"E", u"R", u"T", u"Z", u"U", u"I", u"O", u"P", u"Ü", u"*"],
 				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"Ö", u"Ä", u"'"],
 				[u">", u"Y", u"X", u"C", u"V", u"B", u"N", u"M", u";", u":", u"_", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"?", u"\\", u"OK", u"LEFT", u"RIGHT"]]
+				[u"SHIFT", u"SPACE", u"?", u"\\", u"OK"]]
 			self.nextLang = 'es_ES'
 		elif self.lang == 'es_ES':
 			#still missing keys (u"ùÙ")
@@ -139,7 +144,7 @@ class VirtualKeyBoard(Screen):
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
 				[u"q", u"w", u"e", u"r", u"t", u"z", u"u", u"i", u"o", u"p", u"ú", u"+"],
 				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"ó", u"á", u"#"],
-				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"ALL"],
+				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
 				[u"SHIFT", u"SPACE", u"@", u"Ł", u"ŕ", u"é", u"č", u"í", u"ě", u"ń", u"ň", u"OK"]]
 			self.shiftkeys_list = [
 				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
@@ -153,64 +158,36 @@ class VirtualKeyBoard(Screen):
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
 				[u"q", u"w", u"e", u"r", u"t", u"z", u"u", u"i", u"o", u"p", u"é", u"+"],
 				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"ö", u"ä", u"#"],
-				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"ALL"],
-				[u"SHIFT", u"SPACE", u"@", u"ß", u"ĺ", u"OK", u"LEFT", u"RIGHT"]]
+				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
+				[u"SHIFT", u"SPACE", u"@", u"ß", u"ĺ", u"OK"]]
 			self.shiftkeys_list = [
 				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
 				[u"Q", u"W", u"E", u"R", u"T", u"Z", u"U", u"I", u"O", u"P", u"É", u"*"],
 				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"Ö", u"Ä", u"'"],
 				[u">", u"Y", u"X", u"C", u"V", u"B", u"N", u"M", u";", u":", u"_", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"?", u"\\", u"Ĺ", u"OK", u"LEFT", u"RIGHT"]]
-			self.nextLang = 'lv_LV'
-		elif self.lang == 'lv_LV':
-			self.keys_list = [
-				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
-				[u"q", u"w", u"e", u"r", u"t", u"y", u"u", u"i", u"o", u"p", u"-", u"š"],
-				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u";", u"'", u"ū"],
-				[u"<", u"z", u"x", u"c", u"v", u"b", u"n", u"m", u",", u".", u"ž", u"ALL"],
-				[u"SHIFT", u"SPACE", u"ā", u"č", u"ē", u"ģ", u"ī", u"ķ", u"ļ", u"ņ", u"LEFT", u"RIGHT"]]
-			self.shiftkeys_list = [
-				[u"EXIT", u"!", u"@", u"$", u"*", u"(", u")", u"_", u"=", u"/", u"\\", u"BACKSPACE"],
-				[u"Q", u"W", u"E", u"R", u"T", u"Y", u"U", u"I", u"O", u"P", u"+", u"Š"],
-				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u":", u'"', u"Ū"],
-				[u">", u"Z", u"X", u"C", u"V", u"B", u"N", u"M", u"#", u"?", u"Ž", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"Ā", u"Č", u"Ē", u"Ģ", u"Ī", u"Ķ", u"Ļ", u"Ņ", u"LEFT", u"RIGHT"]]
-			self.nextLang = 'ru_RU'
-		elif self.lang == 'ru_RU':
-			self.keys_list = [
-				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
-				[u"а", u"б", u"в", u"г", u"д", u"е", u"ё", u"ж", u"з", u"и", u"й", u"+"],
-				[u"к", u"л", u"м", u"н", u"о", u"п", u"р", u"с", u"т", u"у", u"ф", u"#"],
-				[u"<", u"х", u"ц", u"ч", u"ш", u"щ", u"ъ", u"ы", u",", u".", u"-", u"ALL"],
-				[u"SHIFT", u"SPACE", u"@", u"ь", u"э", u"ю", u"я", u"OK", u"LEFT", u"RIGHT"]]
-			self.shiftkeys_list = [
-				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
-				[u"А", u"Б", u"В", u"Г", u"Д", u"Е", u"Ё", u"Ж", u"З", u"И", u"Й", u"*"],
-				[u"К", u"Л", u"М", u"Н", u"О", u"П", u"Р", u"С", u"Т", u"У", u"Ф", u"'"],
-				[u">", u"Х", u"Ц", u"Ч", u"Ш", u"Щ", u"Ъ", u"Ы", u";", u":", u"_", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"?", u"\\", u"Ь", u"Э", u"Ю", u"Я", u"OK", u"LEFT", u"RIGHT"]]
+				[u"SHIFT", u"SPACE", u"?", u"\\", u"Ĺ", u"OK"]]
 			self.nextLang = 'sv_SE'
 		elif self.lang == 'sv_SE':
 			self.keys_list = [
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
 				[u"q", u"w", u"e", u"r", u"t", u"z", u"u", u"i", u"o", u"p", u"é", u"+"],
 				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"ö", u"ä", u"#"],
-				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"ALL"],
-				[u"SHIFT", u"SPACE", u"@", u"ß", u"ĺ", u"OK", u"LEFT", u"RIGHT"]]
+				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
+				[u"SHIFT", u"SPACE", u"@", u"ß", u"ĺ", u"OK"]]
 			self.shiftkeys_list = [
 				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
 				[u"Q", u"W", u"E", u"R", u"T", u"Z", u"U", u"I", u"O", u"P", u"É", u"*"],
 				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"Ö", u"Ä", u"'"],
 				[u">", u"Y", u"X", u"C", u"V", u"B", u"N", u"M", u";", u":", u"_", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"?", u"\\", u"Ĺ", u"OK", u"LEFT", u"RIGHT"]]
+				[u"SHIFT", u"SPACE", u"?", u"\\", u"Ĺ", u"OK"]]
 			self.nextLang = 'sk_SK'
 		elif self.lang =='sk_SK':
 			self.keys_list = [
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
 				[u"q", u"w", u"e", u"r", u"t", u"z", u"u", u"i", u"o", u"p", u"ú", u"+"],
 				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"ľ", u"@", u"#"],
-				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"ALL"],
-				[u"SHIFT", u"SPACE", u"š", u"č", u"ž", u"ý", u"á", u"í", u"é", u"OK", u"LEFT", u"RIGHT"]]
+				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
+				[u"SHIFT", u"SPACE", u"š", u"č", u"ž", u"ý", u"á", u"í", u"é", u"OK"]]
 			self.shiftkeys_list = [
 				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
 				[u"Q", u"W", u"E", u"R", u"T", u"Z", u"U", u"I", u"O", u"P", u"ť", u"*"],
@@ -224,7 +201,7 @@ class VirtualKeyBoard(Screen):
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
 				[u"q", u"w", u"e", u"r", u"t", u"z", u"u", u"i", u"o", u"p", u"ú", u"+"],
 				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"ů", u"@", u"#"],
-				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"ALL"],
+				[u"<", u"y", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
 				[u"SHIFT", u"SPACE", u"ě", u"š", u"č", u"ř", u"ž", u"ý", u"á", u"í", u"é", u"OK"]]
 			self.shiftkeys_list = [
 				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
@@ -232,134 +209,108 @@ class VirtualKeyBoard(Screen):
 				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"ň", u"ď", u"'"],
 				[u">", u"Y", u"X", u"C", u"V", u"B", u"N", u"M", u";", u":", u"_", u"CLEAR"],
 				[u"SHIFT", u"SPACE", u"?", u"\\", u"Č", u"Ř", u"Š", u"Ž", u"Ú", u"Á", u"É", u"OK"]]
-			self.nextLang = 'el_GR'
-		elif self.lang == 'el_GR':
-			self.keys_list = [
-				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
-				[u"=", u"ς", u"ε", u"ρ", u"τ", u"υ", u"θ", u"ι", u"ο", u"π", u"[", u"]"],
-				[u"α", u"σ", u"δ", u"φ", u"γ", u"η", u"ξ", u"κ", u"λ", u";", u"'", u"-"],
-				[u"\\", u"ζ", u"χ", u"ψ", u"ω", u"β", u"ν", u"μ", u",", ".", u"/", u"ALL"],
-				[u"SHIFT", u"SPACE", u"ά", u"έ", u"ή", u"ί", u"ό", u"ύ", u"ώ", u"ϊ", u"ϋ", u"OK"]]
-			self.shiftkeys_list = [
-				[u"EXIT", u"!", u"@", u"#", u"$", u"%", u"^", u"&", u"*", u"(", u")", u"BACKSPACE"],
-				[u"+", u"€", u"Ε", u"Ρ", u"Τ", u"Υ", u"Θ", u"Ι", u"Ο", u"Π", u"{", u"}"],
-				[u"Α", u"Σ", u"Δ", u"Φ", u"Γ", u"Η", u"Ξ", u"Κ", u"Λ", u":", u'"', u"_"],
-				[u"|", u"Ζ", u"Χ", u"Ψ", u"Ω", u"Β", u"Ν", u"Μ", u"<", u">", u"?", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"Ά", u"Έ", u"Ή", u"Ί", u"Ό", u"Ύ", u"Ώ", u"Ϊ", u"Ϋ", u"OK"]]
-			self.nextLang = 'pl_PL'
-		elif self.lang == 'pl_PL':
-			self.keys_list = [
-				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
-				[u"q", u"w", u"e", u"r", u"t", u"y", u"u", u"i", u"o", u"p", u"-", u"["],
-				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u";", u"'", u"\\"],
-				[u"<", u"z", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"/", u"ALL"],
-				[u"SHIFT", u"SPACE", u"ą", u"ć", u"ę", u"ł", u"ń", u"ó", u"ś", u"ź", u"ż", u"OK"]]
-			self.shiftkeys_list = [
-				[u"EXIT", u"!", u"@", u"#", u"$", u"%", u"^", u"&", u"(", u")", u"=", u"BACKSPACE"],
-				[u"Q", u"W", u"E", u"R", u"T", u"Y", u"U", u"I", u"O", u"P", u"*", u"]"],
-				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"?", u'"', u"|"],
-				[u">", u"Z", u"X", u"C", u"V", u"B", u"N", u"M", u";", u":", u"_", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"Ą", u"Ć", u"Ę", u"Ł", u"Ń", u"Ó", u"Ś", u"Ź", u"Ż", u"OK"]]
 			self.nextLang = 'en_EN'
 		else:
 			self.keys_list = [
 				[u"EXIT", u"1", u"2", u"3", u"4", u"5", u"6", u"7", u"8", u"9", u"0", u"BACKSPACE"],
-				[u"q", u"w", u"e", u"r", u"t", u"y", u"u", u"i", u"o", u"p", u"-", u"["],
-				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u";", u"'", u"\\"],
-				[u"<", u"z", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"/", u"ALL"],
-				[u"SHIFT", u"SPACE", u"OK", u"LEFT", u"RIGHT", u"*"]]
+				[u"q", u"w", u"e", u"r", u"t", u"y", u"u", u"i", u"o", u"p", u"+", u"@"],
+				[u"a", u"s", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"#", u"\\", u"|"],
+				[u"<", u"z", u"x", u"c", u"v", u"b", u"n", u"m", u",", ".", u"-", u"CLEAR"],
+				[u"SHIFT", u"SPACE", u"OK"]]
 			self.shiftkeys_list = [
-				[u"EXIT", u"!", u"@", u"#", u"$", u"%", u"^", u"&", u"(", u")", u"=", u"BACKSPACE"],
-				[u"Q", u"W", u"E", u"R", u"T", u"Y", u"U", u"I", u"O", u"P", u"+", u"]"],
-				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"?", u'"', u"|"],
+				[u"EXIT", u"!", u'"', u"§", u"$", u"%", u"&", u"/", u"(", u")", u"=", u"BACKSPACE"],
+				[u"Q", u"W", u"E", u"R", u"T", u"Y", u"U", u"I", u"O", u"P", u"*", u"["],
+				[u"A", u"S", u"D", u"F", u"G", u"H", u"J", u"K", u"L", u"'", u"?", u"]"],
 				[u">", u"Z", u"X", u"C", u"V", u"B", u"N", u"M", u";", u":", u"_", u"CLEAR"],
-				[u"SHIFT", u"SPACE", u"OK", u"LEFT", u"RIGHT", u"~"]]
+				[u"SHIFT", u"SPACE", u"OK"]]
 			self.lang = 'en_EN'
-			self.nextLang = 'de_DE'
+			self.nextLang = 'de_DE'		
 		self["country"].setText(self.lang)
 		self.max_key=47+len(self.keys_list[4])
 
-	def virtualKeyBoardEntryComponent(self, keys):
-		w, h = skin.parameters.get("VirtualKeyboard",(45, 45))
-		key_bg_width = self.key_bg and self.key_bg.size().width() or w
-		key_images = self.shiftMode and self.keyImagesShift or self.keyImages
-		res = [(keys)]
-		text = []
-		x = 0
-		for key in keys:
-			png = key_images.get(key, None)
-			if png:
-				width = png.size().width()
-				res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, h), png=png))
-			else:
-				width = key_bg_width
-				res.append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, h), png=self.key_bg))
-				text.append(MultiContentEntryText(pos=(x, 0), size=(width, h), font=0, text=key.encode("utf-8"), flags=RT_HALIGN_CENTER | RT_VALIGN_CENTER))
-			x += width
-		return res + text
-
-	def buildVirtualKeyBoard(self):
-		self.previousSelectedKey = None
-		self.list = []
-		for keys in self.shiftMode and self.shiftkeys_list or self.keys_list:
-			self.list.append(self.virtualKeyBoardEntryComponent(keys))
-		self.markSelectedKey()
-
-	def markSelectedKey(self):
-		w, h = skin.parameters.get("VirtualKeyboard",(45, 45))
-		if self.previousSelectedKey is not None:
-			self.list[self.previousSelectedKey /12] = self.list[self.previousSelectedKey /12][:-1]
-		width = self.key_sel.size().width()
-		x = self.list[self.selectedKey/12][self.selectedKey % 12 + 1][1]
-		self.list[self.selectedKey / 12].append(MultiContentEntryPixmapAlphaTest(pos=(x, 0), size=(width, h), png=self.key_sel))
-		self.previousSelectedKey = self.selectedKey
-		self["list"].setList(self.list)
-
+	def buildVirtualKeyBoard(self, selectedKey=0):
+		list = []
+		
+		if self.shiftMode:
+			self.k_list = self.shiftkeys_list
+			for keys in self.k_list:
+				keyslen = len(keys)
+				if selectedKey < keyslen and selectedKey > -1:
+					list.append(VirtualKeyBoardEntryComponent(keys, selectedKey,True))
+				else:
+					list.append(VirtualKeyBoardEntryComponent(keys, -1,True))
+				selectedKey -= keyslen
+		else:
+			self.k_list = self.keys_list
+			for keys in self.k_list:
+				keyslen = len(keys)
+				if selectedKey < keyslen and selectedKey > -1:
+					list.append(VirtualKeyBoardEntryComponent(keys, selectedKey))
+				else:
+					list.append(VirtualKeyBoardEntryComponent(keys, -1))
+				selectedKey -= keyslen
+		
+		self["list"].setList(list)
+	
 	def backClicked(self):
-		self["text"].deleteBackward()
-
-	def forwardClicked(self):
-		self["text"].deleteForward()
-
-	def shiftClicked(self):
-		self.smsChar = None
-		self.shiftMode = not self.shiftMode
-		self.buildVirtualKeyBoard()
+		self.text = self["text"].getText()[:-1]
+		self["text"].setText(self.text)
 
 	def okClicked(self):
-		self.smsChar = None
-		text = (self.shiftMode and self.shiftkeys_list or self.keys_list)[self.selectedKey / 12][self.selectedKey % 12].encode("UTF-8")
+		if self.shiftMode:
+			list = self.shiftkeys_list
+		else:
+			list = self.keys_list
+		
+		selectedKey = self.selectedKey
+
+		text = None
+
+		for x in list:
+			xlen = len(x)
+			if selectedKey < xlen:
+				if selectedKey < len(x):
+					text = x[selectedKey]
+				break
+			else:
+				selectedKey -= xlen
+
+		if text is None:
+			return
+
+		text = text.encode("UTF-8")
+		print 'okClicked', text
 
 		if text == "EXIT":
 			self.close(None)
-
+		
 		elif text == "BACKSPACE":
-			self["text"].deleteBackward()
-
-		elif text == "ALL":
-			self["text"].markAll()
-
+			self.text = self["text"].getText()[:-1]
+			self["text"].setText(self.text)
+		
 		elif text == "CLEAR":
-			self["text"].deleteAllChars()
-			self["text"].update()
-
+			self.text = ""
+			self["text"].setText(self.text)
+		
 		elif text == "SHIFT":
-			self.shiftClicked()
-
+			if self.shiftMode:
+				self.shiftMode = False
+			else:
+				self.shiftMode = True
+			
+			self.buildVirtualKeyBoard(self.selectedKey)
+		
 		elif text == "SPACE":
-			self["text"].char(" ".encode("UTF-8"))
-
+			self.text += " "
+			self["text"].setText(self.text)
+		
 		elif text == "OK":
 			self.close(self["text"].getText())
-
-		elif text == "LEFT":
-			self["text"].left()
-
-		elif text == "RIGHT":
-			self["text"].right()
-
+		
 		else:
-			self["text"].char(text)
+			self.text = self["text"].getText()
+			self.text += text
+			self["text"].setText(self.text)
 
 	def ok(self):
 		self.close(self["text"].getText())
@@ -367,70 +318,91 @@ class VirtualKeyBoard(Screen):
 	def exit(self):
 		self.close(None)
 
-	def cursorRight(self):
-		self["text"].right()
-
-	def cursorLeft(self):
-		self["text"].left()
-
 	def left(self):
-		self.smsChar = None
-		self.selectedKey = self.selectedKey / 12 * 12 + (self.selectedKey + 11) % 12
-		if self.selectedKey > self.max_key:
+		self.selectedKey -= 1
+		
+		if self.selectedKey == -1:
+			self.selectedKey = 11
+		elif self.selectedKey == 11:
+			self.selectedKey = 23
+		elif self.selectedKey == 23:
+			self.selectedKey = 35
+		elif self.selectedKey == 35:
+			self.selectedKey = 47
+		elif self.selectedKey == 47:
 			self.selectedKey = self.max_key
-		self.markSelectedKey()
+		
+		self.showActiveKey()
 
 	def right(self):
-		self.smsChar = None
-		self.selectedKey = self.selectedKey / 12 * 12 + (self.selectedKey + 1) % 12
-		if self.selectedKey > self.max_key:
-			self.selectedKey = self.selectedKey / 12 * 12
-		self.markSelectedKey()
+		self.selectedKey += 1
+		
+		if self.selectedKey == 12:
+			self.selectedKey = 0
+		elif self.selectedKey == 24:
+			self.selectedKey = 12
+		elif self.selectedKey == 36:
+			self.selectedKey = 24
+		elif self.selectedKey == 48:
+			self.selectedKey = 36
+		elif self.selectedKey > self.max_key:
+			self.selectedKey = 48
+		
+		self.showActiveKey()
 
 	def up(self):
-		self.smsChar = None
 		self.selectedKey -= 12
-		if self.selectedKey < 0:
-			self.selectedKey = self.max_key / 12 * 12 + self.selectedKey % 12
-			if self.selectedKey > self.max_key:
-				self.selectedKey -= 12
-		self.markSelectedKey()
+		
+		if (self.selectedKey < 0) and (self.selectedKey > (self.max_key-60)):
+			self.selectedKey += 48
+		elif self.selectedKey < 0:
+			self.selectedKey += 60	
+		
+		self.showActiveKey()
 
 	def down(self):
-		self.smsChar = None
 		self.selectedKey += 12
-		if self.selectedKey > self.max_key:
-			self.selectedKey = self.selectedKey % 12
-		self.markSelectedKey()
+		
+		if (self.selectedKey > self.max_key) and (self.selectedKey > 59):
+			self.selectedKey -= 60
+		elif self.selectedKey > self.max_key:
+			self.selectedKey -= 48
+		
+		self.showActiveKey()
 
-	def keyNumberGlobal(self, number):
-		self.smsChar = self.sms.getKey(number)
-		self.selectAsciiKey(self.smsChar)
+	def showActiveKey(self):
+		self.buildVirtualKeyBoard(self.selectedKey)
 
-	def smsOK(self):
-		if self.smsChar and self.selectAsciiKey(self.smsChar):
-			print "pressing ok now"
-			self.okClicked()
+	def inShiftKeyList(self,key):
+		for KeyList in self.shiftkeys_list:
+			for char in KeyList:
+				if char == key:
+					return True
+		return False
 
 	def keyGotAscii(self):
-		self.smsChar = None
-		if self.selectAsciiKey(str(unichr(getPrevAsciiCode()).encode('utf-8'))):
-			self.okClicked()
+		#char = str(unichr(getPrevAsciiCode()).encode('utf-8'))
+		from Components.config import getCharValue
+		char = getCharValue(getPrevAsciiCode())
+		if len(str(char)) == 1:
+			char = char.encode("utf-8")
+		if self.inShiftKeyList(char):
+			self.shiftMode = True
+			list = self.shiftkeys_list
+		else:
+			self.shiftMode = False
+			list = self.keys_list	
 
-	def selectAsciiKey(self, char):
 		if char == " ":
 			char = "SPACE"
-		for keyslist in (self.shiftkeys_list, self.keys_list):
-			selkey = 0
-			for keys in keyslist:
-				for key in keys:
-					if key == char:
-						self.selectedKey = selkey
-						if self.shiftMode != (keyslist is self.shiftkeys_list):
-							self.shiftMode = not self.shiftMode
-							self.buildVirtualKeyBoard()
-						else:
-							self.markSelectedKey()
-						return True
+
+		selkey = 0
+		for keylist in list:
+			for key in keylist:
+				if key == char:
+					self.selectedKey = selkey
+					self.okClicked()
+					self.showActiveKey()
+					return
+				else:
 					selkey += 1
-		return False

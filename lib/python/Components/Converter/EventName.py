@@ -1,6 +1,7 @@
 from Components.Converter.Converter import Converter
 from Components.Element import cached
-from Components.Converter.genre import getGenreStringLong, getGenreStringSub
+from enigma import eEPGCache
+from Components.Converter.genre import getGenreStringSub
 
 class EventName(Converter, object):
 	NAME = 0
@@ -17,9 +18,13 @@ class EventName(Converter, object):
 	PDCTIME = 11
 	PDCTIMESHORT = 12
 	ISRUNNINGSTATUS = 13
+	ID = 14
+	NEXT_NAME = 15
+        NEXT_DESCRIPTION = 16
 
 	def __init__(self, type):
 		Converter.__init__(self, type)
+		self.epgcache = eEPGCache.getInstance()
 		if type == "Description":
 			self.type = self.SHORT_DESCRIPTION
 		elif type == "ExtendedDescription":
@@ -46,6 +51,10 @@ class EventName(Converter, object):
 			self.type = self.PDCTIMESHORT
 		elif type == "IsRunningStatus":
 			self.type = self.ISRUNNINGSTATUS
+		elif type == "NextName":
+                        self.type = self.NEXT_NAME
+                elif type == "NextDescription":
+                        self.type = self.NEXT_DESCRIPTION
 		else:
 			self.type = self.NAME
 
@@ -115,6 +124,8 @@ class EventName(Converter, object):
 			description = event.getShortDescription()
 			extended = event.getExtendedDescription()
 			if description and extended:
+				if description.replace('\n','') == extended.replace('\n',''):
+					return extended
 				description += '\n'
 			return description + extended
 		elif self.type == self.ID:
@@ -134,18 +145,32 @@ class EventName(Converter, object):
 			if event.getPdcPil():
 				running_status = event.getRunningStatus()
 				if running_status == 1:
-					return "not running"
+					return _("not running")
 				if running_status == 2:
-					return "starts in a few seconds"
+					return _("starts in a few seconds")
 				if running_status == 3:
-					return "pausing"
+					return _("pausing")
 				if running_status == 4:
-					return "running"
+					return _("running")
 				if running_status == 5:
-					return "service off-air"
+					return _("service off-air")
 				if running_status in (6,7):
-					return "reserved for future use"
-				return "undefined"
+					return _("reserved for future use")
+				return _("undefined")
 			return ""
+		elif self.type == self.NEXT_NAME or self.type == self.NEXT_DESCRIPTION:
+                        reference = self.source.service
+                        info = reference and self.source.info
+                        if info is not None:
+                        	nextEvent = self.epgcache.lookupEvent(['SETX', (reference.toString(), 1, -1)])
+                                if self.type == self.NEXT_NAME:
+                                        return nextEvent[0][2]
+                                else:
+                                        if nextEvent[0][1] != "":
+                                                return nextEvent[0][1]
+                                        else:
+                                                return nextEvent[0][0]
 
+		return ""
+		
 	text = property(getText)

@@ -1,6 +1,6 @@
 from Components.Converter.Converter import Converter
 from Components.Element import cached, ElementError
-from enigma import iServiceInformation, eServiceReference
+from enigma import iServiceInformation
 from ServiceReference import ServiceReference
 
 class MovieInfo(Converter, object):
@@ -26,25 +26,21 @@ class MovieInfo(Converter, object):
 	def getText(self):
 		service = self.source.service
 		info = self.source.info
-		event = self.source.event
 		if info and service:
 			if self.type == self.MOVIE_SHORT_DESCRIPTION:
-				if (service.flags & eServiceReference.flagDirectory) == eServiceReference.flagDirectory:
-					# Short description for Directory is the full path
-					return service.getPath()
-				return (info.getInfoString(service, iServiceInformation.sDescription)
-				    or (event and event.getShortDescription())
-				    or service.getPath())
+				event = self.source.event
+				if event:
+					descr = info.getInfoString(service, iServiceInformation.sDescription)
+					if descr == "":
+						return event.getShortDescription()
+					else:
+						return descr
 			elif self.type == self.MOVIE_META_DESCRIPTION:
-				return ((event and (event.getExtendedDescription() or event.getShortDescription()))
-				    or info.getInfoString(service, iServiceInformation.sDescription)
-				    or service.getPath())
+				return info.getInfoString(service, iServiceInformation.sDescription)
 			elif self.type == self.MOVIE_REC_SERVICE_NAME:
 				rec_ref_str = info.getInfoString(service, iServiceInformation.sServiceref)
 				return ServiceReference(rec_ref_str).getServiceName()
 			elif self.type == self.MOVIE_REC_FILESIZE:
-				if (service.flags & eServiceReference.flagDirectory) == eServiceReference.flagDirectory:
-					return _("Directory")
 				filesize = info.getInfoObject(service, iServiceInformation.sFileSize)
 				if filesize is not None:
 					return "%d MB" % (filesize / (1024*1024))

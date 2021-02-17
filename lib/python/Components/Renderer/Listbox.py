@@ -17,7 +17,7 @@ class Listbox(Renderer, object):
 	def __init__(self):
 		Renderer.__init__(self)
 		self.__content = None
-		self.__wrap_around = True
+		self.__wrap_around = False
 		self.__selection_enabled = True
 		self.__scrollbarMode = "showOnDemand"
 
@@ -88,7 +88,7 @@ class Listbox(Renderer, object):
 				}[mode]))
 
 	scrollbarMode = property(lambda self: self.__scrollbarMode, setScrollbarMode)
-
+	
 	def changed(self, what):
 		if hasattr(self.source, "selectionEnabled"):
 			self.selection_enabled = self.source.selectionEnabled

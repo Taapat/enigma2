@@ -14,7 +14,7 @@ class HelpMenu(Screen, Rc):
 		Rc.__init__(self)
 		self["long_key"] = Label("")
 
-		self["actions"] = ActionMap(["WizardActions"],
+		self["actions"] = ActionMap(["WizardActions"], 
 		{
 			"ok": self["list"].ok,
 			"back": self.close,
@@ -35,7 +35,7 @@ class HelpMenu(Screen, Rc):
 			if selection[1] == "SHIFT":
 				self.selectKey("SHIFT")
 			elif selection[1] == "long":
-				longText = _("Long key press")
+				longText = _("Long Keypress")
 		self["long_key"].setText(longText)
 
 		self.selectKey(selection[0])

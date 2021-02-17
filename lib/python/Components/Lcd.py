@@ -1,16 +1,6 @@
 from config import config, ConfigSubsection, ConfigSlider, ConfigYesNo, ConfigNothing
 from enigma import eDBoxLCD
 from Components.SystemInfo import SystemInfo
-from Screens.InfoBar import InfoBar
-from Screens.Screen import Screen
-
-class dummyScreen(Screen):
-	skin = """<screen position="0,0" size="0,0" transparent="1">
-	<widget source="session.VideoPicture" render="Pig" position="0,0" size="0,0" backgroundColor="transparent" zPosition="1"/>
-	</screen>"""
-	def __init__(self, session, args=None):
-		Screen.__init__(self, session)
-		self.close()
 
 class LCD:
 	def __init__(self):
@@ -34,9 +24,6 @@ class LCD:
 		if value:
 			value = 255
 		eDBoxLCD.getInstance().setInverted(value)
-
-	def setFlipped(self, value):
-		eDBoxLCD.getInstance().setFlipped(value)
 
 	def isOled(self):
 		return eDBoxLCD.getInstance().isOled()
@@ -63,9 +50,6 @@ def InitLcd():
 		def setLCDinverted(configElement):
 			ilcd.setInverted(configElement.value);
 
-		def setLCDflipped(configElement):
-			ilcd.setFlipped(configElement.value);
-
 		standby_default = 0
 
 		ilcd = LCD()
@@ -88,17 +72,6 @@ def InitLcd():
 
 		config.lcd.invert = ConfigYesNo(default=False)
 		config.lcd.invert.addNotifier(setLCDinverted);
-
-		config.lcd.flip = ConfigYesNo(default=False)
-		config.lcd.flip.addNotifier(setLCDflipped);
-
-		if SystemInfo["LcdLiveTV"]:
-			def lcdLiveTvChanged(configElement):
-				open(SystemInfo["LcdLiveTV"], "w").write(configElement.value and "0" or "1")
-				InfoBarInstance = InfoBar.instance
-				InfoBarInstance and InfoBarInstance.session.open(dummyScreen)
-			config.lcd.showTv = ConfigYesNo(default = False)
-			config.lcd.showTv.addNotifier(lcdLiveTvChanged)
 	else:
 		def doNothing():
 			pass

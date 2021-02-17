@@ -1,14 +1,15 @@
-from config import config, ConfigSlider, ConfigSubsection, ConfigYesNo, ConfigText, ConfigInteger
-from os import listdir, open as os_open, close as os_close, write as os_write, O_RDWR, O_NONBLOCK
-from Tools.Directories import pathExists
+# coding: utf-8
+from config import config, configfile, ConfigSlider, ConfigSubsection, ConfigYesNo, ConfigText
+
+import struct, sys, time, errno
 from fcntl import ioctl
-import struct
+from os import path as os_path, listdir, open as os_open, close as os_close, write as os_write, read as os_read, O_RDWR, O_NONBLOCK
 
 # asm-generic/ioctl.h
 IOC_NRBITS = 8L
 IOC_TYPEBITS = 8L
-IOC_SIZEBITS = 13L
-IOC_DIRBITS = 3L
+IOC_SIZEBITS = 14L
+IOC_DIRBITS = 2L
 
 IOC_NRSHIFT = 0L
 IOC_TYPESHIFT = IOC_NRSHIFT+IOC_NRBITS
@@ -27,11 +28,14 @@ class inputDevices:
 		self.Devices = {}
 		self.currentDevice = ""
 		self.getInputDevices()
-
+	
 	def getInputDevices(self):
 		devices = listdir("/dev/input/")
 
 		for evdev in devices:
+			if not evdev.startswith("event"):
+				continue
+
 			try:
 				buffer = "\0"*512
 				self.fd = os_open("/dev/input/" + evdev, O_RDWR | O_NONBLOCK)
@@ -41,22 +45,28 @@ class inputDevices:
 			except (IOError,OSError), err:
 				print '[iInputDevices] getInputDevices  <ERROR: ioctl(EVIOCGNAME): ' + str(err) + ' >'
 				self.name = None
-
+			
 			if self.name:
+				if self.name == 'dreambox front panel':
+					continue
+				if self.name == "dreambox advanced remote control (native)" and config.misc.rcused.value == 1:
+					continue
+				if self.name == "dreambox remote control (native)" and config.misc.rcused.value != 1:
+					continue
 				self.Devices[evdev] = {'name': self.name, 'type': self.getInputDeviceType(self.name),'enabled': False, 'configuredName': None }
-
+	
 
 	def getInputDeviceType(self,name):
-		if "remote control" in name:
+		if name.find("remote control") != -1:
 			return "remote"
-		elif "keyboard" in name:
+		elif name.find("keyboard") != -1:
 			return "keyboard"
-		elif "mouse" in name:
+		elif name.find("mouse") != -1:
 			return "mouse"
 		else:
 			print "Unknown device type:",name
 			return None
-
+			
 	def getDeviceName(self, x):
 		if x in self.Devices.keys():
 			return self.Devices[x].get("name", x)
@@ -66,17 +76,27 @@ class inputDevices:
 	def getDeviceList(self):
 		return sorted(self.Devices.iterkeys())
 
+	def getDefaultRCdeviceName(self):
+		if config.misc.rcused.value != 1:
+			for device in self.Devices.iterkeys():
+				if self.Devices[device]["name"] == "dreambox advanced remote control (native)":
+					return device
+		else:
+			for device in self.Devices.iterkeys():
+				if self.Devices[device]["name"] == "dreambox remote control (native)":
+					return device
+
 	def setDeviceAttribute(self, device, attribute, value):
 		#print "[iInputDevices] setting for device", device, "attribute", attribute, " to value", value
 		if self.Devices.has_key(device):
 			self.Devices[device][attribute] = value
-
+			
 	def getDeviceAttribute(self, device, attribute):
 		if self.Devices.has_key(device):
 			if self.Devices[device].has_key(attribute):
 				return self.Devices[device][attribute]
 		return None
-
+			
 	def setEnabled(self, device, value):
 		oldval = self.getDeviceAttribute(device, 'enabled')
 		#print "[iInputDevices] setEnabled for device %s to %s from %s" % (device,value,oldval)
@@ -87,7 +107,7 @@ class inputDevices:
 	def setName(self, device, value):
 		#print "[iInputDevices] setName for device %s to %s" % (device,value)
 		self.setDeviceAttribute(device, 'configuredName', value)
-
+		
 	#struct input_event {
 	#	struct timeval time;    -> ignored
 	#	__u16 type;             -> EV_REP (0x14)
@@ -123,11 +143,11 @@ class inputDevices:
 
 
 class InitInputDevices:
-
+	
 	def __init__(self):
 		self.currentDevice = ""
 		self.createConfig()
-
+	
 	def createConfig(self, *args):
 		config.inputDevices = ConfigSubsection()
 		for device in sorted(iInputDevices.Devices.iterkeys()):
@@ -160,7 +180,7 @@ class InitInputDevices:
 			iInputDevices.setRepeat(self.currentDevice, configElement.value)
 		elif iInputDevices.currentDevice != "":
 			iInputDevices.setRepeat(iInputDevices.currentDevice, configElement.value)
-
+		
 	def inputDevicesDelayChanged(self,configElement):
 		if self.currentDevice != "" and iInputDevices.currentDevice == "":
 			iInputDevices.setDelay(self.currentDevice, configElement.value)
@@ -189,34 +209,3 @@ class InitInputDevices:
 
 
 iInputDevices = inputDevices()
-
-
-config.plugins.remotecontroltype = ConfigSubsection()
-config.plugins.remotecontroltype.rctype = ConfigInteger(default = 0)
-
-class RcTypeControl():
-	def __init__(self):
-		if pathExists('/proc/stb/ir/rc/type') and pathExists('/proc/stb/info/boxtype'):
-			self.isSupported = True
-
-			fd = open('/proc/stb/info/boxtype', 'r')
-			self.boxType = fd.read()
-			fd.close()
-
-			if config.plugins.remotecontroltype.rctype.value != 0:
-				self.writeRcType(config.plugins.remotecontroltype.rctype.value)
-		else:
-			self.isSupported = False
-
-	def multipleRcSupported(self):
-		return self.isSupported
-
-	def getBoxType(self):
-		return self.boxType
-
-	def writeRcType(self, rctype):
-		fd = open('/proc/stb/ir/rc/type', 'w')
-		fd.write('%d' % (rctype))
-		fd.close()
-
-iRcTypeControl = RcTypeControl()

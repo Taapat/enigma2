@@ -1,11 +1,11 @@
 from Components.Element import cached
-from enigma import eServiceCenter
+from enigma import eServiceCenter, eServiceReference as Ref
 from Source import Source
 
 class ServiceEvent(Source, object):
 	def __init__(self):
 		Source.__init__(self)
-		self.service = None
+		self.service = None 
 
 	@cached
 	def getCurrentService(self):
@@ -23,8 +23,9 @@ class ServiceEvent(Source, object):
 	info = property(getInfo)
 
 	def newService(self, ref):
-		self.service = ref
-		if not ref:
-			self.changed((self.CHANGED_CLEAR,))
-		else:
-			self.changed((self.CHANGED_ALL,))
+		if not self.service or not ref or self.service != ref:
+			self.service = ref
+			if not ref:
+				self.changed((self.CHANGED_CLEAR,))
+			else:
+				self.changed((self.CHANGED_ALL,))

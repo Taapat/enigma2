@@ -17,9 +17,10 @@ class Job(object):
 		self.__progress = 0
 		self.weightScale = 1
 		self.afterEvent = None
+
 		self.state_changed = CList()
+
 		self.status = self.NOT_STARTED
-		self.onSuccess = None
 
 	# description is a dict
 	def fromDescription(self, description):
@@ -38,7 +39,7 @@ class Job(object):
 	progress = property(getProgress)
 
 	def getStatustext(self):
-		return { self.NOT_STARTED: _("Waiting"), self.IN_PROGRESS: _("In progress"), self.FINISHED: _("Finished"), self.FAILED: _("Failed") }[self.status]
+		return { self.NOT_STARTED: _("Waiting"), self.IN_PROGRESS: _("In Progress"), self.FINISHED: _("Finished"), self.FAILED: _("Failed") }[self.status]
 
 	def task_progress_changed_CB(self):
 		self.state_changed()
@@ -109,9 +110,6 @@ class Job(object):
 	def cancel(self):
 		self.abort()
 
-	def __str__(self):
-		return "Components.Task.Job name=%s #tasks=%s" % (self.name, len(self.tasks))
-
 class Task(object):
 	def __init__(self, job, name):
 		self.name = name
@@ -121,6 +119,7 @@ class Task(object):
 		self.returncode = None
 		self.initial_input = None
 		self.job = None
+
 		self.end = 100
 		self.weighting = 100
 		self.__progress = 0
@@ -157,17 +156,23 @@ class Task(object):
 				not_met.append(precondition)
 		return not_met
 
-	def _run(self):
-		if (self.cmd is None) and (self.cmdline is None):
-			self.finish()
+	def run(self, callback):
+		failed_preconditions = self.checkPreconditions(True) + self.checkPreconditions(False)
+		if len(failed_preconditions):
+			callback(self, failed_preconditions)
 			return
+		self.prepare()
+
+		self.callback = callback
 		from enigma import eConsoleAppContainer
 		self.container = eConsoleAppContainer()
 		self.container.appClosed.append(self.processFinished)
 		self.container.stdoutAvail.append(self.processStdout)
 		self.container.stderrAvail.append(self.processStderr)
+
 		if self.cwd is not None:
 			self.container.setCWD(self.cwd)
+
 		if not self.cmd and self.cmdline:
 			print "execute:", self.container.execute(self.cmdline), self.cmdline
 		else:
@@ -177,30 +182,15 @@ class Task(object):
 		if self.initial_input:
 			self.writeInput(self.initial_input)
 
-	def run(self, callback):
-		failed_preconditions = self.checkPreconditions(True) + self.checkPreconditions(False)
-		if failed_preconditions:
-			print "[Task] preconditions failed"
-			callback(self, failed_preconditions)
-			return
-		self.callback = callback
-		try:
-			self.prepare()
-			self._run()
-		except Exception, ex:
-			print "[Task] exception:", ex
-			self.postconditions = [FailedPostcondition(ex)]
-			self.finish()
-
 	def prepare(self):
 		pass
 
 	def cleanup(self, failed):
 		pass
-
+	
 	def processStdout(self, data):
 		self.processOutput(data)
-
+		
 	def processStderr(self, data):
 		self.processOutput(data)
 
@@ -214,7 +204,6 @@ class Task(object):
 			self.output_line = self.output_line[i+1:]
 
 	def processOutputLine(self, line):
-		print "[Task %s]" % self.name, line[:-1]
 		pass
 
 	def processFinished(self, returncode):
@@ -258,137 +247,46 @@ class Task(object):
 
 	progress = property(getProgress, setProgress)
 
-	def __str__(self):
-		return "Components.Task.Task name=%s" % (self.name)
-
-class LoggingTask(Task):
-	def __init__(self, job, name):
-		Task.__init__(self, job, name)
-		self.log = []
-	def processOutput(self, data):
-		print "[%s]" % self.name, data,
-		self.log.append(data)
-
-
-class PythonTask(Task):
-	def _run(self):
-		from twisted.internet import threads
-		from enigma import eTimer
-		self.aborted = False
-		self.pos = 0
-		threads.deferToThread(self.work).addBoth(self.onComplete)
-		self.timer = eTimer()
-		self.timer.callback.append(self.onTimer)
-		self.timer.start(5)
-	def work(self):
-		raise NotImplemented, "work"
-	def abort(self):
-		self.aborted = True
-		if self.callback is None:
-			self.finish(aborted = True)
-	def onTimer(self):
-		self.setProgress(self.pos)
-	def onComplete(self, result):
-		self.postconditions.append(FailedPostcondition(result))
-		self.timer.stop()
-		del self.timer
-		self.finish()
-
-class ConditionTask(Task):
-	"""
-	Reactor-driven pthread_condition.
-	Wait for something to happen. Call trigger when something occurs that
-	is likely to make check() return true. Raise exception in check() to
-	signal error.
-	Default is to call trigger() once per second, override prepare/cleanup
-	to do something else (like waiting for hotplug)...
-	"""
-	def __init__(self, job, name, timeoutCount=None):
-		Task.__init__(self, job, name)
-		self.timeoutCount = timeoutCount
-	def _run(self):
-		self.triggerCount = 0
-	def prepare(self):
-		from enigma import eTimer
-		self.timer = eTimer()
-		self.timer.callback.append(self.trigger)
-		self.timer.start(1000)
-	def cleanup(self, failed):
-		if hasattr(self, 'timer'):
-			self.timer.stop()
-			del self.timer
-	def check(self):
-		# override to return True only when condition triggers
-		return True
-	def trigger(self):
-		self.triggerCount += 1
-		try:
-			if (self.timeoutCount is not None) and (self.triggerCount > self.timeoutCount):
-				raise Exception, "Timeout elapsed, sorry"
-			res = self.check()
-		except Exception, e:
-			self.postconditions.append(FailedPostcondition(e))
-			res = True
-		if res:
-			self.finish()
-
 # The jobmanager will execute multiple jobs, each after another.
 # later, it will also support suspending jobs (and continuing them after reboot etc)
-# It also supports a notification when some error occurred, and possibly a retry.
+# It also supports a notification when some error occured, and possibly a retry.
 class JobManager:
 	def __init__(self):
 		self.active_jobs = [ ]
 		self.failed_jobs = [ ]
 		self.job_classes = [ ]
 		self.in_background = False
-		self.visible = False
 		self.active_job = None
 
-	# Set onSuccess to popupTaskView to get a visible notification.
-	# onFail defaults to notifyFailed which tells the user that it went south.
-	def AddJob(self, job, onSuccess=None, onFail=None):
-		job.onSuccess = onSuccess
-		if onFail is None:
-			job.onFail = self.notifyFailed
-		else:
-			job.onFail = onFail
+	def AddJob(self, job):
 		self.active_jobs.append(job)
 		self.kick()
 
 	def kick(self):
 		if self.active_job is None:
-			if self.active_jobs:
+			if len(self.active_jobs):
 				self.active_job = self.active_jobs.pop(0)
 				self.active_job.start(self.jobDone)
 
-	def notifyFailed(self, job, task, problems):
-		from Tools import Notifications
-		from Screens.MessageBox import MessageBox
-		if problems[0].RECOVERABLE:
-			Notifications.AddNotificationWithCallback(self.errorCB, MessageBox, _("Error: %s\nRetry?") % (problems[0].getErrorMessage(task)))
-			return True
-		else:
-			Notifications.AddNotification(MessageBox, job.name + "\n" + _("Error") + (': %s') % (problems[0].getErrorMessage(task)), type = MessageBox.TYPE_ERROR )
-			return False
-
 	def jobDone(self, job, task, problems):
 		print "job", job, "completed with", problems, "in", task
-		if problems:
-			if not job.onFail(job, task, problems):
-				self.errorCB(False)
-		else:
-			self.active_job = None
-			if job.onSuccess:
-				job.onSuccess(job)
-			self.kick()
-
-	# Set job.onSuccess to this function if you want to pop up the jobview when the job is done/
-	def popupTaskView(self, job):
-		if not self.visible:
-			from Tools import Notifications
+		from Tools import Notifications
+		if self.in_background:
 			from Screens.TaskView import JobView
-			self.visible = True
-			Notifications.AddNotification(JobView, job)
+			self.in_background = False
+			Notifications.AddNotification(JobView, self.active_job)
+		if problems:
+			from Screens.MessageBox import MessageBox
+			if problems[0].RECOVERABLE:
+				Notifications.AddNotificationWithCallback(self.errorCB, MessageBox, _("Error: %s\nRetry?") % (problems[0].getErrorMessage(task)))
+			else:
+				Notifications.AddNotification(MessageBox, _("Error") + (': %s') % (problems[0].getErrorMessage(task)), type = MessageBox.TYPE_ERROR )
+				self.errorCB(False)
+			return
+			#self.failed_jobs.append(self.active_job)
+
+		self.active_job = None
+		self.kick()
 
 	def errorCB(self, answer):
 		if answer:
@@ -418,7 +316,7 @@ class JobManager:
 #
 #class CreatePartitionTask(Task):
 #	def __init__(self, device):
-#		Task.__init__(self, "Creating partition")
+#		Task.__init__(self, _("Create Partition"))
 #		self.device = device
 #		self.setTool("/sbin/sfdisk")
 #		self.args += ["-f", self.device + "disc"]
@@ -427,7 +325,7 @@ class JobManager:
 #
 #class CreateFilesystemTask(Task):
 #	def __init__(self, device, partition = 1, largefile = True):
-#		Task.__init__(self, "Creating filesystem")
+#		Task.__init__(self, _("Create Filesystem"))
 #		self.setTool("/sbin/mkfs.ext")
 #		if largefile:
 #			self.args += ["-T", "largefile"]
@@ -436,7 +334,7 @@ class JobManager:
 #
 #class FilesystemMountTask(Task):
 #	def __init__(self, device, partition = 1, filesystem = "ext3"):
-#		Task.__init__(self, "Mounting filesystem")
+#		Task.__init__(self, _("Mounting Filesystem"))
 #		self.setTool("/bin/mount")
 #		if filesystem is not None:
 #			self.args += ["-t", filesystem]
@@ -446,7 +344,7 @@ class Condition:
 	RECOVERABLE = False
 
 	def getErrorMessage(self, task):
-		return _("An unknown error occurred!") + " (%s @ task %s)" % (self.__class__.__name__, task.__class__.__name__)
+		return _("An unknown error occured!") + " (%s @ task %s)" % (self.__class__.__name__, task.__class__.__name__)
 
 class WorkspaceExistsPrecondition(Condition):
 	def check(self, task):
@@ -467,24 +365,25 @@ class DiskspacePrecondition(Condition):
 			return False
 
 	def getErrorMessage(self, task):
-		return _("Not enough disk space. Please free up some disk space and try again. (%d MB required, %d MB available)") % (self.diskspace_required / 1024 / 1024, self.diskspace_available / 1024 / 1024)
+		return _("Not enough diskspace. Please free up some diskspace and try again. (%d MB required, %d MB available)") % (self.diskspace_required / 1024 / 1024, self.diskspace_available / 1024 / 1024)
 
 class ToolExistsPrecondition(Condition):
 	def check(self, task):
 		import os
+		
 		if task.cmd[0]=='/':
 			self.realpath = task.cmd
-			print "[Task.py][ToolExistsPrecondition] WARNING: usage of absolute paths for tasks should be avoided!"
+			print "[Task.py][ToolExistsPrecondition] WARNING: usage of absolute paths for tasks should be avoided!" 
 			return os.access(self.realpath, os.X_OK)
 		else:
 			self.realpath = task.cmd
 			path = os.environ.get('PATH', '').split(os.pathsep)
 			path.append(task.cwd + '/')
 			absolutes = filter(lambda file: os.access(file, os.X_OK), map(lambda directory, file = task.cmd: os.path.join(directory, file), path))
-			if absolutes:
-				self.realpath = absolutes[0]
+			if len(absolutes) > 0:
+				self.realpath = task.cmd[0]
 				return True
-		return False
+		return False 
 
 	def getErrorMessage(self, task):
 		return _("A required tool (%s) was not found.") % (self.realpath)
@@ -496,30 +395,6 @@ class AbortedPostcondition(Condition):
 class ReturncodePostcondition(Condition):
 	def check(self, task):
 		return task.returncode == 0
-	def getErrorMessage(self, task):
-		if hasattr(task, 'log') and task.log:
-			log = ''.join(task.log).strip()
-			log = log.split('\n')[-3:]
-			log = '\n'.join(log)
-			return log
-		else:
-			return _("Error code") + ": %s" % task.returncode
-
-class FailedPostcondition(Condition):
-	def __init__(self, exception):
-		self.exception = exception
-	def getErrorMessage(self, task):
-		if isinstance(self.exception, int):
-			if hasattr(task, 'log'):
-				log = ''.join(task.log).strip()
-				log = log.split('\n')[-4:]
-				log = '\n'.join(log)
-				return log
-			else:
-				return _("Error code") + " %s" % self.exception
-		return str(self.exception)
-	def check(self, task):
-		return (self.exception is None) or (self.exception == 0)
 
 #class HDDInitJob(Job):
 #	def __init__(self, device):

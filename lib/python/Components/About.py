@@ -1,87 +1,89 @@
-# -*- coding: utf-8 -*-
-import sys, os, time
-from Tools.HardwareInfo import HardwareInfo
+from Tools.Directories import resolveFilename, SCOPE_SYSETC
+from enigma import getEnigmaVersionString
+from os import popen
+from boxbranding import getImageVersion, getImageBuild, getDriverDate
 
-def getVersionString():
-	return getImageVersionString()
-
-def getImageVersionString():
-	try:
-		if os.path.isfile('/var/lib/opkg/status'):
-			st = os.stat('/var/lib/opkg/status')
-		else:
-			st = os.stat('/usr/lib/ipkg/status')
-		tm = time.localtime(st.st_mtime)
-		if tm.tm_year >= 2011:
-			return time.strftime("%Y-%m-%d %H:%M:%S", tm)
-	except:
+class About:
+	def __init__(self):
 		pass
-	return _("unavailable")
 
-def getFlashDateString():
-	try:
-		return time.strftime(_("%Y-%m-%d %H:%M"), time.localtime(os.stat("/boot").st_ctime))
-	except:
-		return _("unknown")
+	def getImageVersionString(self):
+		return getImageVersion()
 
-def getEnigmaVersionString():
-	import enigma
-	enigma_version = enigma.getEnigmaVersionString()
-	if '-(no branch)' in enigma_version:
-		enigma_version = enigma_version [:-12]
-	return enigma_version
+	def getSubVersionString(self):
+		if len( getImageBuild()) < 1:
+			return ""
+		else:
+			return "." + getImageBuild()
 
-def getGStreamerVersionString():
-	import enigma
-	return enigma.getGStreamerVersionString()
+	def getEnigmaVersionString(self):
+		return getEnigmaVersionString()
 
-def getKernelVersionString():
-	try:
-		return open("/proc/version","r").read().split(' ', 4)[2].split('-',2)[0]
-	except:
-		return _("unknown")
+	def getDriverDateString(self):
+		return getDriverDate()
 
-def getHardwareTypeString():
-	return HardwareInfo().get_device_string()
+	def getKernelVersionString(self):
+		try:
+			return open("/proc/version","r").read().split(' ', 4)[2].split('-',2)[0]
+		except:
+			return _("unknown")
 
-def getImageTypeString():
-	try:
-		return open("/etc/issue").readlines()[-2].capitalize().strip()[:-6]
-	except:
-		return _("undefined")
+	def getIfaces(self):
+		import socket, fcntl, struct, array, sys
+		SIOCGIFCONF = 0x8912 # sockios.h
+		is_64bits = sys.maxsize > 2**32
+		struct_size = 40 if is_64bits else 32
+		max_possible = 8 # initial value
+		sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		while True:
+			# ifconf structure:
+			# struct ifconf {
+			#		int			ifc_len; /* size of buffer */
+			# 		union {
+			# 			char 		*ifc_buf; /* buffer address */
+			#			struct ifreq	*ifc_req; /* array of structures */
+			# 		};
+			# 	};
+			#
+			# struct ifreq:
+			# #define IFNAMSIZ	16
+			# struct ifreq {
+			# 	char ifr_name[IFNAMSIZ]; /* Interface name */
+			# 	union {
+			# 		struct sockaddr ifr_addr;
+			# 		.....
+			# 	};
+			# };
 
-def getCPUInfoString():
-	try:
-		cpu_count = 0
-		for line in open("/proc/cpuinfo").readlines():
-			line = [x.strip() for x in line.strip().split(":")]
-			if line[0] == "system type":
-				processor = line[1].split()[0]
-			if line[0] == "cpu MHz":
-				cpu_speed = "%1.0f" % float(line[1])
-				cpu_count += 1
-		if os.path.isfile('/proc/stb/fp/temp_sensor_avs'):
-			temperature = open("/proc/stb/fp/temp_sensor_avs").readline().replace('\n','')
-			return "%s %s MHz (%s) %s°C" % (processor, cpu_speed, ngettext("%d core", "%d cores", cpu_count) % cpu_count, temperature)
-		return "%s %s MHz (%s)" % (processor, cpu_speed, ngettext("%d core", "%d cores", cpu_count) % cpu_count)
-	except:
-		return _("undefined")
+			# Initialize ifc_buf
+			bytes = max_possible * struct_size
+			names = array.array('B')
+			for i in range(0, bytes):
+				names.append(0)
 
-def getDriverInstalledDate():
-	try:
-		from glob import glob
-		driver = [x.split("-")[-2:-1][0][-8:] for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
-		return  "%s-%s-%s" % (driver[:4], driver[4:6], driver[6:])
-	except:
-		return _("unknown")
+			input_buffer = struct.pack( 'iL', bytes, names.buffer_info()[0] )
+			output_buffer = fcntl.ioctl( sock.fileno(), SIOCGIFCONF, input_buffer )
+			output_size = struct.unpack('iL', output_buffer)[0]
 
-def getPythonVersionString():
-	try:
-		import commands
-		status, output = commands.getstatusoutput("python -V")
-		return output.split(' ')[1]
-	except:
-		return _("unknown")
+			if output_size == bytes:
+				max_possible *= 2
+			else:
+				break
 
-# For modules that do "from About import about"
-about = sys.modules[__name__]
+		namestr = names.tostring()
+		ifaces = []
+		for i in range(0, output_size, struct_size):
+			iface_name = namestr[i:i+16].split('\0', 1)[0]
+			iface_addr = socket.inet_ntoa(namestr[i+20:i+24])
+			if iface_name != 'lo':
+				ifaces.append((iface_name, iface_addr))
+
+		return ifaces
+
+	def getNetworkInfo(self):
+		data = ""
+		for x in self.getIfaces():
+			data += "%s : %s\n" % (x[0], x[1])
+		return data or "\tnot connected"
+
+about = About()

@@ -27,26 +27,25 @@ class RecordPathsSettings(Screen,ConfigListScreen):
 		ConfigListScreen.__init__(self, [])
 		self.initConfigList()
 
-		self["setupActions"] = ActionMap(["SetupActions", "ColorActions", "MenuActions"],
+		self["setupActions"] = ActionMap(["SetupActions", "ColorActions"],
 		{
 		    "green": self.save,
-		    "red": self.keyCancel,
-		    "cancel": self.keyCancel,
+		    "red": self.cancel,
+		    "cancel": self.cancel,
 		    "ok": self.ok,
-		    "menu": self.closeRecursive,
 		}, -2)
 
 	def checkReadWriteDir(self, configele):
+		value = configele.value
 		print "checkReadWrite: ", configele.value
-		if configele.value in [x[0] for x in self.styles] or fileExists(configele.value, "w"):
-			configele.last_value = configele.value
+		if not value or value in [x[0] for x in self.styles] or fileExists(value, "w"):
+			configele.last_value = value
 			return True
 		else:
-			dir = configele.value
 			configele.value = configele.last_value
 			self.session.open(
 				MessageBox,
-				_("The directory %s is not writable.\nMake sure you select a writable directory instead.")%dir,
+				_("The directory %s is not writable.\nMake sure you select a writable directory instead.") % value,
 				type = MessageBox.TYPE_ERROR
 				)
 			return False
@@ -56,11 +55,11 @@ class RecordPathsSettings(Screen,ConfigListScreen):
 		styles_keys = [x[0] for x in self.styles]
 		tmp = config.movielist.videodirs.value
 		default = config.usage.default_path.value
-		if default not in tmp:
+		if default and default not in tmp:
 			tmp = tmp[:]
 			tmp.append(default)
 		print "DefaultPath: ", default, tmp
-		self.default_dirname = ConfigSelection(default = default, choices = tmp)
+		self.default_dirname = ConfigSelection(default = default, choices = [("", _("<Default movie location>"))] + tmp)
 		tmp = config.movielist.videodirs.value
 		default = config.usage.timer_path.value
 		if default not in tmp and default not in styles_keys:
@@ -91,9 +90,9 @@ class RecordPathsSettings(Screen,ConfigListScreen):
 		if config.usage.setup_level.index >= 2:
 			self.default_entry = getConfigListEntry(_("Default movie location"), self.default_dirname)
 			self.list.append(self.default_entry)
-			self.timer_entry = getConfigListEntry(_("Timer recording location"), self.timer_dirname)
+			self.timer_entry = getConfigListEntry(_("Timer record location"), self.timer_dirname)
 			self.list.append(self.timer_entry)
-			self.instantrec_entry = getConfigListEntry(_("Instant recording location"), self.instantrec_dirname)
+			self.instantrec_entry = getConfigListEntry(_("Instant record location"), self.instantrec_dirname)
 			self.list.append(self.instantrec_entry)
 		else:
 			self.default_entry = getConfigListEntry(_("Movie location"), self.default_dirname)
@@ -149,10 +148,10 @@ class RecordPathsSettings(Screen,ConfigListScreen):
 				styles_keys = [x[0] for x in self.styles]
 				tmp = config.movielist.videodirs.value
 				default = self.default_dirname.value
-				if default not in tmp:
+				if default and default not in tmp:
 					tmp = tmp[:]
 					tmp.append(default)
-				self.default_dirname.setChoices(tmp, default=default)
+				self.default_dirname.setChoices([("", _("<Default movie location>"))] + tmp, default=default)
 				tmp = config.movielist.videodirs.value
 				default = self.timer_dirname.value
 				if default not in tmp and default not in styles_keys:
@@ -182,10 +181,14 @@ class RecordPathsSettings(Screen,ConfigListScreen):
 		if self.checkReadWriteDir(currentry[1]):
 			config.usage.default_path.value = self.default_dirname.value
 			config.usage.timer_path.value = self.timer_dirname.value
-			config.usage.instantrec_path.value = self.instantrec_dirname.value
+			config.usage.instantrec_path.value = self.instantrec_dirname.value 
 			config.usage.timeshift_path.value = self.timeshift_dirname.value
 			config.usage.default_path.save()
 			config.usage.timer_path.save()
 			config.usage.instantrec_path.save()
 			config.usage.timeshift_path.save()
 			self.close()
+
+	def cancel(self):
+		self.close()
+

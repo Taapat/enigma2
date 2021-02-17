@@ -29,8 +29,6 @@ from Components.MenuList import MenuList
 # Timer
 from enigma import eTimer
 
-defaultInhibitDirs = ["/bin", "/boot", "/dev", "/etc", "/lib", "/proc", "/sbin", "/sys", "/usr", "/var"]
-
 class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 	"""Simple Class similar to MessageBox / ChoiceBox but used to choose a folder/pathname combination"""
 
@@ -41,16 +39,16 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 			<widget name="textbook" position="0,272" size="540,22" font="Regular;22" />
 			<widget name="booklist" position="5,302" zPosition="2" size="535,100" scrollbarMode="showOnDemand" />
 			<widget name="red" position="0,415" zPosition="1" size="135,40" pixmap="skin_default/buttons/red.png" transparent="1" alphatest="on" />
-			<widget name="key_red" position="0,415" zPosition="2" size="135,40" halign="center" valign="center" font="Regular;22" transparent="1" shadowColor="black" shadowOffset="-1,-1" />
+			<widget name="key_red" position="0,415" zPosition="2" size="135,40" halign="center" valign="center" font="Regular;22" transparent="1" shadowColor="black" shadowOffset="-1,-1" />   
 			<widget name="green" position="135,415" zPosition="1" size="135,40" pixmap="skin_default/buttons/green.png" transparent="1" alphatest="on" />
 			<widget name="key_green" position="135,415" zPosition="2" size="135,40" halign="center" valign="center" font="Regular;22" transparent="1" shadowColor="black" shadowOffset="-1,-1" />
 			<widget name="yellow" position="270,415" zPosition="1" size="135,40" pixmap="skin_default/buttons/yellow.png" transparent="1" alphatest="on" />
 			<widget name="key_yellow" position="270,415" zPosition="2" size="135,40" halign="center" valign="center" font="Regular;22" transparent="1" shadowColor="black" shadowOffset="-1,-1" />
 			<widget name="blue" position="405,415" zPosition="1" size="135,40" pixmap="skin_default/buttons/blue.png" transparent="1" alphatest="on" />
-			<widget name="key_blue" position="405,415" zPosition="2" size="135,40" halign="center" valign="center" font="Regular;22" transparent="1" shadowColor="black" shadowOffset="-1,-1" />
+			<widget name="key_blue" position="405,415" zPosition="2" size="135,40" halign="center" valign="center" font="Regular;22" transparent="1" shadowColor="black" shadowOffset="-1,-1" />            
 		</screen>"""
 
-	def __init__(self, session, text = "", filename = "", currDir = None, bookmarks = None, userMode = False, windowTitle = _("Select location"), minFree = None, autoAdd = False, editDir = False, inhibitDirs = [], inhibitMounts = []):
+	def __init__(self, session, text = "", filename = "", currDir = None, bookmarks = None, userMode = False, windowTitle = _("Select Location"), minFree = None, autoAdd = False, editDir = False, inhibitDirs = [], inhibitMounts = []):
 		# Init parents
 		Screen.__init__(self, session)
 		NumericalTextInput.__init__(self, handleTimeout = False)
@@ -92,7 +90,7 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 		# Buttons
 		self["key_green"] = Button(_("OK"))
 		self["key_yellow"] = Button(_("Rename"))
-		self["key_blue"] = Button(_("Remove bookmark"))
+		self["key_blue"] = Button(_("Remove Bookmark"))
 		self["key_red"] = Button(_("Cancel"))
 
 		# Background for Buttons
@@ -172,7 +170,7 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 		))
 
 		self.onLayoutFinish.append(self.switchToFileListOnStart)
-
+ 
 		# Make sure we remove our callback
 		self.onClose.append(self.disableTimer)
 
@@ -198,14 +196,14 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 			self.currList = "filelist"
 			self["filelist"].selectionEnabled(1)
 			self["booklist"].selectionEnabled(0)
-			self["key_blue"].text = _("Add bookmark")
+			self["key_blue"].text = _("Add Bookmark")
 			self.updateTarget()
 
 	def switchToBookList(self):
 		self.currList = "booklist"
 		self["filelist"].selectionEnabled(0)
 		self["booklist"].selectionEnabled(1)
-		self["key_blue"].text = _("Remove bookmark")
+		self["key_blue"].text = _("Remove Bookmark")
 		self.updateTarget()
 
 	def addRemoveBookmark(self):
@@ -400,7 +398,7 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 			self["target"].setText(''.join((currFolder, self.filename)))
 		# Display a Warning otherwise
 		else:
-			self["target"].setText(_("Invalid location"))
+			self["target"].setText(_("Invalid Location"))
 
 	def showMenu(self):
 		if not self.userMode and self.realBookmarks:
@@ -430,7 +428,7 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 	def menuCallback(self, choice):
 		if choice:
 			choice[1]()
-
+			
 	def usermodeOn(self):
 		self.switchToBookList()
 		self["filelist"].hide()
@@ -509,11 +507,15 @@ class LocationBox(Screen, NumericalTextInput, HelpableScreen):
 	def __repr__(self):
 		return str(type(self)) + "(" + self.text + ")"
 
-def MovieLocationBox(session, text, dir, minFree = None):
-	return LocationBox(session, text = text, currDir = dir, bookmarks = config.movielist.videodirs, autoAdd = True, editDir = True, inhibitDirs = defaultInhibitDirs, minFree = minFree)
+class MovieLocationBox(LocationBox):
+	def __init__(self, session, text, dir, minFree = None):
+		inhibitDirs = ["/bin", "/boot", "/dev", "/etc", "/lib", "/proc", "/sbin", "/sys", "/usr", "/var"]
+		LocationBox.__init__(self, session, text = text, currDir = dir, bookmarks = config.movielist.videodirs, autoAdd = True, editDir = True, inhibitDirs = inhibitDirs, minFree = minFree)
+		self.skinName = "LocationBox"
 
 class TimeshiftLocationBox(LocationBox):
 	def __init__(self, session):
+		inhibitDirs = ["/bin", "/boot", "/dev", "/etc", "/lib", "/proc", "/sbin", "/sys", "/usr", "/var"]
 		LocationBox.__init__(
 				self,
 				session,
@@ -522,7 +524,7 @@ class TimeshiftLocationBox(LocationBox):
 				bookmarks = config.usage.allowed_timeshift_paths,
 				autoAdd = True,
 				editDir = True,
-				inhibitDirs = defaultInhibitDirs,
+				inhibitDirs = inhibitDirs,
 				minFree = 1024 # the same requirement is hardcoded in servicedvb.cpp
 		)
 		self.skinName = "LocationBox"

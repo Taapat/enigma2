@@ -8,7 +8,6 @@ class ServicePosition(Poll, Converter, object):
 	TYPE_POSITION = 1
 	TYPE_REMAINING = 2
 	TYPE_GAUGE = 3
-	TYPE_SUMMARY = 4
 
 	def __init__(self, type):
 		Poll.__init__(self)
@@ -18,7 +17,6 @@ class ServicePosition(Poll, Converter, object):
 		type = args.pop(0)
 
 		self.negate = 'Negate' in args
-		self.plus = 'Plus' in args
 		self.detailed = 'Detailed' in args
 		self.showHours = 'ShowHours' in args
 		self.showNoSeconds = 'ShowNoSeconds' in args
@@ -31,8 +29,6 @@ class ServicePosition(Poll, Converter, object):
 			self.type = self.TYPE_REMAINING
 		elif type == "Gauge":
 			self.type = self.TYPE_GAUGE
-		elif type == "Summary":
-			self.type = self.TYPE_SUMMARY
 		else:
 			raise ElementError("type must be {Length|Position|Remaining|Gauge} with optional arguments {Negate|Detailed|ShowHours|ShowNoSeconds} for ServicePosition converter")
 
@@ -87,23 +83,14 @@ class ServicePosition(Poll, Converter, object):
 				l = self.position
 			elif self.type == self.TYPE_REMAINING:
 				l = self.length - self.position
-			elif self.type == self.TYPE_SUMMARY:
-				s = self.position / 90000
-				e = (self.length / 90000) - s
-				return "%02d:%02d +%2dm" % (s/60, s%60, e/60)
-
-			if l < 0:
-				return ""
 
 			if not self.detailed:
 				l /= 90000
 
 			if self.negate: l = -l
 
-			sign = ""
-			if l >= 0:
-				if self.plus:
-					sign = "+"
+			if l > 0:
+				sign = ""
 			else:
 				l = -l
 				sign = "-"

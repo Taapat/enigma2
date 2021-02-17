@@ -1,12 +1,13 @@
 from Screen import Screen
 from Screens.HelpMenu import HelpableScreen
 from Screens.MessageBox import MessageBox
-from Components.InputDevice import iInputDevices, iRcTypeControl
+from Components.InputDevice import iInputDevices
 from Components.Sources.StaticText import StaticText
+from Components.Sources.Boolean import Boolean
 from Components.Sources.List import List
-from Components.config import config, ConfigYesNo, getConfigListEntry, ConfigSelection
+from Components.config import config, ConfigSlider, ConfigSubsection, ConfigYesNo, ConfigText, getConfigListEntry, ConfigNothing
 from Components.ConfigList import ConfigListScreen
-from Components.ActionMap import ActionMap, HelpableActionMap
+from Components.ActionMap import ActionMap, NumberActionMap, HelpableActionMap
 from Tools.Directories import resolveFilename, SCOPE_CURRENT_SKIN
 from Tools.LoadPixmap import LoadPixmap
 
@@ -31,6 +32,7 @@ class InputDeviceSelection(Screen,HelpableScreen):
 							"fonts": [gFont("Regular", 28),gFont("Regular", 20)],
 							"itemHeight": 70
 							}
+						
 			</convert>
 		</widget>
 		<ePixmap pixmap="skin_default/div-h.png" position="0,340" zPosition="1" size="560,2"/>
@@ -41,18 +43,18 @@ class InputDeviceSelection(Screen,HelpableScreen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
 		HelpableScreen.__init__(self)
-
+		
 		self.edittext = _("Press OK to edit the settings.")
-
+		
 		self["key_red"] = StaticText(_("Close"))
 		self["key_green"] = StaticText(_("Select"))
 		self["key_yellow"] = StaticText("")
 		self["key_blue"] = StaticText("")
 		self["introduction"] = StaticText(self.edittext)
-
-		self.devices = [(iInputDevices.getDeviceName(x),x) for x in iInputDevices.getDeviceList()]
+		
+		self.devices = [(iInputDevices.getDeviceName(x)[9:],x) for x in iInputDevices.getDeviceList()]
 		print "[InputDeviceSelection] found devices :->", len(self.devices),self.devices
-
+			
 		self["OkCancelActions"] = HelpableActionMap(self, "OkCancelActions",
 			{
 			"cancel": (self.close, _("Exit input device selection.")),
@@ -64,7 +66,7 @@ class InputDeviceSelection(Screen,HelpableScreen):
 			"red": (self.close, _("Exit input device selection.")),
 			"green": (self.okbuttonClick, _("Select input device.")),
 			}, -2)
-
+		
 		self.currentIndex = 0
 		self.list = []
 		self["list"] = List(self.list)
@@ -78,14 +80,14 @@ class InputDeviceSelection(Screen,HelpableScreen):
 	def cleanup(self):
 		self.currentIndex = 0
 
-	def buildInterfaceList(self, device, description, type, isinputdevice = True):
+	def buildInterfaceList(self,device,description,type ):
 		divpng = LoadPixmap(cached=True, path=resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/div-h.png"))
 		activepng = None
 		devicepng = None
 		enabled = iInputDevices.getDeviceAttribute(device, 'enabled')
 
 		if type == 'remote':
-			if config.misc.rcused.value == 0:
+			if config.misc.rcused.value != 1:
 				if enabled:
 					devicepng = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/input_rcnew-configured.png"))
 				else:
@@ -105,20 +107,15 @@ class InputDeviceSelection(Screen,HelpableScreen):
 				devicepng = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/input_mouse-configured.png"))
 			else:
 				devicepng = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/input_mouse.png"))
-		elif isinputdevice:
+		else:
 			devicepng = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/input_rcnew.png"))
-		return ((device, description, devicepng, divpng))
+		return((device, description, devicepng, divpng))	
 
 	def updateList(self):
 		self.list = []
-
-		if iRcTypeControl.multipleRcSupported():
-			self.list.append(self.buildInterfaceList('rctype', _('Configure remote control type'), None, False))
-
 		for x in self.devices:
 			dev_type = iInputDevices.getDeviceAttribute(x[1], 'type')
-			self.list.append(self.buildInterfaceList(x[1],_(x[0]), dev_type))
-
+			self.list.append(self.buildInterfaceList(x[1],_(x[0]), dev_type ))
 		self["list"].setList(self.list)
 		self["list"].setIndex(self.currentIndex)
 
@@ -126,10 +123,7 @@ class InputDeviceSelection(Screen,HelpableScreen):
 		selection = self["list"].getCurrent()
 		self.currentIndex = self["list"].getIndex()
 		if selection is not None:
-			if selection[0] == 'rctype':
-				self.session.open(RemoteControlType)
-			else:
-				self.session.openWithCallback(self.DeviceSetupClosed, InputDeviceSetup, selection[0])
+			self.session.openWithCallback(self.DeviceSetupClosed, InputDeviceSetup, selection[0])
 
 	def DeviceSetupClosed(self, *ret):
 		self.updateList()
@@ -168,11 +162,10 @@ class InputDeviceSetup(Screen, ConfigListScreen):
 		self.list = [ ]
 		ConfigListScreen.__init__(self, self.list, session = session, on_change = self.changedEntry)
 
-		self["actions"] = ActionMap(["SetupActions", "MenuActions"],
+		self["actions"] = ActionMap(["SetupActions"],
 			{
 				"cancel": self.keyCancel,
 				"save": self.apply,
-				"menu": self.closeRecursive,
 			}, -2)
 
 		self["key_red"] = StaticText(_("Cancel"))
@@ -187,26 +180,19 @@ class InputDeviceSetup(Screen, ConfigListScreen):
 
 	def layoutFinished(self):
 		self.setTitle(self.setup_title)
-		listWidth = self["config"].l.getItemSize().width()
-		# use 20% of list width for sliders
-		self["config"].l.setSeperation(int(listWidth*.8))
 
 	def cleanup(self):
 		iInputDevices.currentDevice = ""
 
 	def createSetup(self):
 		self.list = [ ]
-		label = _("Change repeat and delay settings?")
-		cmd = "self.enableEntry = getConfigListEntry(label, config.inputDevices." + self.inputDevice + ".enabled)"
+		cmd = "self.enableEntry = getConfigListEntry(_('"'Change repeat and delay settings?'"'), config.inputDevices." + self.inputDevice + ".enabled)"
 		exec (cmd)
-		label = _("Interval between keys when repeating:")
-		cmd = "self.repeatEntry = getConfigListEntry(label, config.inputDevices." + self.inputDevice + ".repeat)"
+		cmd = "self.repeatEntry = getConfigListEntry(_('"'Interval between keys when repeating:'"'), config.inputDevices." + self.inputDevice + ".repeat)"
 		exec (cmd)
-		label = _("Delay before key repeat starts:")
-		cmd = "self.delayEntry = getConfigListEntry(label, config.inputDevices." + self.inputDevice + ".delay)"
+		cmd = "self.delayEntry = getConfigListEntry(_('"'Delay before key repeat starts:'"'), config.inputDevices." + self.inputDevice + ".delay)"
 		exec (cmd)
-		label = _("Devicename:")
-		cmd = "self.nameEntry = getConfigListEntry(label, config.inputDevices." + self.inputDevice + ".name)"
+		cmd = "self.nameEntry = getConfigListEntry(_('"'Devicename:'"'), config.inputDevices." + self.inputDevice + ".name)"
 		exec (cmd)
 		if self.enableEntry:
 			if isinstance(self.enableEntry[1], ConfigYesNo):
@@ -224,8 +210,9 @@ class InputDeviceSetup(Screen, ConfigListScreen):
 				self["config"].invalidate(self.delayEntry)
 				self.nameEntry[1].setValue(self.nameEntry[1].default)
 				self["config"].invalidate(self.nameEntry)
-
+				
 		self["config"].list = self.list
+		self["config"].l.setSeperation(400)
 		self["config"].l.setList(self.list)
 		if not self.selectionChanged in self["config"].onSelectionChanged:
 			self["config"].onSelectionChanged.append(self.selectionChanged)
@@ -262,7 +249,7 @@ class InputDeviceSetup(Screen, ConfigListScreen):
 			self.keySave()
 
 	def apply(self):
-		self.session.openWithCallback(self.confirm, MessageBox, _("Use these input device settings?"), MessageBox.TYPE_YESNO, timeout=20, default=True)
+		self.session.openWithCallback(self.confirm, MessageBox, _("Use this input device settings?"), MessageBox.TYPE_YESNO, timeout = 20, default = True)
 
 	def cancelConfirm(self, result):
 		if not result:
@@ -273,7 +260,7 @@ class InputDeviceSetup(Screen, ConfigListScreen):
 
 	def keyCancel(self):
 		if self["config"].isChanged():
-			self.session.openWithCallback(self.cancelConfirm, MessageBox, _("Really close without saving settings?"), MessageBox.TYPE_YESNO, timeout=20, default=True)
+			self.session.openWithCallback(self.cancelConfirm, MessageBox, _("Really close without saving settings?"), MessageBox.TYPE_YESNO, timeout = 20, default = True)
 		else:
 			self.close()
 	# for summary:
@@ -291,106 +278,3 @@ class InputDeviceSetup(Screen, ConfigListScreen):
 	def createSummary(self):
 		from Screens.Setup import SetupSummary
 		return SetupSummary
-
-
-class RemoteControlType(Screen, ConfigListScreen):
-	rcList = [
-			("0", _("Default")),
-			("11", _("et9200/9500/6500")),
-			("13", _("et4000")),
-			("7", _("et5000/6000")),
-			("9", _("et8000/et10000")),
-			("4", _("DMM normal")),
-			("5", _("et9000/et9100")),
-			("6", _("DMM advanced")),
-			("14", _("xp1000")),
-			("8", _("VU+")),
-			("18", _("F1/F3")),
-			("16", _("HD1100/et7x00")),
-			("19", _("HD2400"))
-		]
-
-	defaultRcList = [
-			("et4000", 13),
-			("et5000", 7),
-			("et6000", 7),
-			("et6500", 11),
-			("et8000", 9),
-			("et9000", 5),
-			("et9100", 5),
-			("et9200", 11),
-			("et9500", 11),
-			("et10000", 9),
-			("formuler1", 18),
-			("formuler3", 18),
-			("xp1000", 14),
-			("hd1100", 16),
-			("hd2400", 19),
-			("et7x00", 16),
-			("et8500", 16)
-		]
-
-	def __init__(self, session):
-		Screen.__init__(self, session)
-		self.skinName = ["RemoteControlType", "Setup" ]
-
-		self["actions"] = ActionMap(["SetupActions"],
-		{
-			"cancel": self.keyCancel,
-			"save": self.keySave,
-		}, -1)
-
-		self["key_green"] = StaticText(_("Save"))
-		self["key_red"] = StaticText(_("Cancel"))
-
-		self.list = []
-		ConfigListScreen.__init__(self, self.list, session = self.session)
-
-		rctype = config.plugins.remotecontroltype.rctype.value
-		self.rctype = ConfigSelection(choices = self.rcList, default = str(rctype))
-		self.list.append(getConfigListEntry(_("Remote control type"), self.rctype))
-		self["config"].list = self.list
-
-		self.defaultRcType = None
-		self.getDefaultRcType()
-
-	def getDefaultRcType(self):
-		data = iRcTypeControl.getBoxType()
-		for x in self.defaultRcList:
-			if x[0] in data:
-				self.defaultRcType = x[1]
-				break
-
-	def setDefaultRcType(self):
-		iRcTypeControl.writeRcType(self.defaultRcType)
-
-	def keySave(self):
-		if config.plugins.remotecontroltype.rctype.value == int(self.rctype.value):
-			self.close()
-		else:
-			self.setNewSetting()
-			self.session.openWithCallback(self.keySaveCallback, MessageBox, _("Is this setting ok?"), MessageBox.TYPE_YESNO, timeout=20, default=True, timeout_default=False)
-
-	def keySaveCallback(self, answer):
-		if answer is False:
-			self.restoreOldSetting()
-		else:
-			config.plugins.remotecontroltype.rctype.value = int(self.rctype.value)
-			config.plugins.remotecontroltype.save()
-			self.close()
-
-	def restoreOldSetting(self):
-		if config.plugins.remotecontroltype.rctype.value == 0:
-			self.setDefaultRcType()
-		else:
-			iRcTypeControl.writeRcType(config.plugins.remotecontroltype.rctype.value)
-
-	def setNewSetting(self):
-		if int(self.rctype.value) == 0:
-			self.setDefaultRcType()
-		else:
-			iRcTypeControl.writeRcType(int(self.rctype.value))
-
-	def keyCancel(self):
-		self.restoreOldSetting()
-		self.close()

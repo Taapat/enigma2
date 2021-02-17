@@ -1,56 +1,14 @@
-InfoBarCount = 0
-
 class InfoBarBase:
-
-	onInfoBarOpened = [ ]
-	onInfoBarClosed = [ ]
-
-	@staticmethod
-	def connectInfoBarOpened(fnc):
-		if not fnc in InfoBarBase.onInfoBarOpened:
-			InfoBarBase.onInfoBarOpened.append(fnc)
-
-	@staticmethod
-	def disconnectInfoBarOpened(fnc):
-		if fnc in InfoBarBase.onInfoBarOpened:
-			InfoBarBase.onInfoBarOpened.remove(fnc)
-
-	@staticmethod
-	def infoBarOpened(infobar):
-		for x in InfoBarBase.onInfoBarOpened:
-			x(infobar)
-
-	@staticmethod
-	def connectInfoBarClosed(fnc):
-		if not fnc in InfoBarBase.onInfoBarClosed:
-			InfoBarBase.onInfoBarClosed.append(fnc)
-
-	@staticmethod
-	def disconnectInfoBarClosed(fnc):
-		if fnc in InfoBarBase.onInfoBarClosed:
-			InfoBarBase.onInfoBarClosed.remove(fnc)
-
-	@staticmethod
-	def infoBarClosed(infobar):
-		for x in InfoBarBase.onInfoBarClosed:
-			x(infobar)
-
 	def __init__(self, steal_current_service = False):
 		if steal_current_service:
 			ServiceEventTracker.setActiveInfoBar(self, None, None)
 		else:
 			nav = self.session.nav
-			ServiceEventTracker.setActiveInfoBar(self, not steal_current_service and nav.getCurrentService(), nav.getCurrentlyPlayingServiceOrGroup())
+			ServiceEventTracker.setActiveInfoBar(self, not steal_current_service and nav.getCurrentService(), nav.getCurrentlyPlayingServiceReference())
 		self.onClose.append(self.__close)
-		InfoBarBase.infoBarOpened(self)
-		global InfoBarCount
-		InfoBarCount += 1
 
 	def __close(self):
 		ServiceEventTracker.popActiveInfoBar()
-		InfoBarBase.infoBarClosed(self)
-		global InfoBarCount
-		InfoBarCount -= 1
 
 class ServiceEventTracker:
 	"""Tracks service events into a screen"""
@@ -66,7 +24,7 @@ class ServiceEventTracker:
 		func_list = set.EventMap.setdefault(evt, [])
 		if func_list:
 			nav = set.navcore
-			cur_ref = nav.getCurrentlyPlayingServiceOrGroup()
+			cur_ref = nav.getCurrentlyPlayingServiceReference()
 			old_service_running = set.oldRef and cur_ref and cur_ref == set.oldRef and set.oldServiceStr == nav.getCurrentService().getPtrString()
 			if not old_service_running and set.oldServiceStr:
 				set.oldServiceStr = None
@@ -99,7 +57,7 @@ class ServiceEventTracker:
 			del stack[set.InfoBarStackSize]
 			old_service = nav.getCurrentService()
 			set.oldServiceStr = old_service and old_service.getPtrString()
-			set.oldRef = nav.getCurrentlyPlayingServiceOrGroup()
+			set.oldRef = nav.getCurrentlyPlayingServiceReference()
 #			if set.InfoBarStackSize:
 #				print "ServiceEventTracker reset active '" + str(stack[set.InfoBarStackSize-1]) + "'"
 

@@ -3,9 +3,11 @@ from Components.GUIComponent import GUIComponent
 from Screen import Screen
 from Components.ActionMap import ActionMap
 from Components.Label import Label
+from Components.config import config
 from ServiceReference import ServiceReference
 from enigma import eListboxPythonMultiContent, eListbox, gFont, iServiceInformation, eServiceCenter
-from Tools.Transponder import ConvertToHumanReadable, getChannelNumber
+from Tools.Transponder import ConvertToHumanReadable
+from Components.NimManager import nimmanager
 import skin
 
 RT_HALIGN_LEFT = 0
@@ -15,7 +17,6 @@ TYPE_VALUE_HEX = 1
 TYPE_VALUE_DEC = 2
 TYPE_VALUE_HEX_DEC = 3
 TYPE_SLIDER = 4
-TYPE_VALUE_ORBIT_DEC = 5
 
 def to_unsigned(x):
 	return x & 0xFFFFFFFF
@@ -29,17 +30,12 @@ def ServiceInfoListEntry(a, b, valueType=TYPE_TEXT, param=4):
 			b = str(b)
 		elif valueType == TYPE_VALUE_HEX_DEC:
 			b = ("0x%0" + str(param) + "x (%dd)") % (to_unsigned(b), b)
-		elif valueType == TYPE_VALUE_ORBIT_DEC:
-			direction = 'E'
-			if b > 1800:
-				b = 3600 - b
-				direction = 'W'
-			b = ("%d.%d%s") % (b // 10, b % 10, direction)
 		else:
 			b = str(b)
-	x, y, w, h = skin.parameters.get("ServiceInfo",(0, 0, 300, 30))
-	xa, ya, wa, ha = skin.parameters.get("ServiceInfoLeft",(0, 0, 300, 25))
-	xb, yb, wb, hb = skin.parameters.get("ServiceInfoRight",(300, 0, 600, 25))
+
+	x, y, w, h = skin.parameters.get("ServiceInfo",(0, 0, 200, 30))
+	xa, ya, wa, ha = skin.parameters.get("ServiceInfoLeft",(0, 0, 200, 25))
+	xb, yb, wb, hb = skin.parameters.get("ServiceInfoRight",(220, 0, 350, 25))
 	return [
 		#PyObject *type, *px, *py, *pwidth, *pheight, *pfnt, *pstring, *pflags;
 		(eListboxPythonMultiContent.TYPE_TEXT, x, y, w, h, 0, RT_HALIGN_LEFT, ""),
@@ -50,6 +46,11 @@ def ServiceInfoListEntry(a, b, valueType=TYPE_TEXT, param=4):
 class ServiceInfoList(HTMLComponent, GUIComponent):
 	def __init__(self, source):
 		GUIComponent.__init__(self)
+		fontsize = 23
+		itemh = 25
+		if config.skin.xres.value == 1920:
+			fontsize = 28
+			itemh = 35
 		self.l = eListboxPythonMultiContent()
 		self.list = source
 		self.l.setList(self.list)
@@ -68,7 +69,7 @@ TYPE_TRANSPONDER_INFO = 2
 class ServiceInfo(Screen):
 	def __init__(self, session, serviceref=None):
 		Screen.__init__(self, session)
-
+		
 		self["actions"] = ActionMap(["OkCancelActions", "ColorActions"],
 		{
 			"ok": self.close,
@@ -81,7 +82,10 @@ class ServiceInfo(Screen):
 
 		if serviceref:
 			self.type = TYPE_TRANSPONDER_INFO
-			self.skinName="ServiceInfoSimple"
+			self["red"] = Label()
+			self["green"] = Label()
+			self["yellow"] = Label()
+			self["blue"] = Label()
 			info = eServiceCenter.getInstance().info(serviceref)
 			self.transponder_info = info.getInfoObject(serviceref, iServiceInformation.sTransponderData)
 			# info is a iStaticServiceInformation, not a iServiceInformation
@@ -89,14 +93,15 @@ class ServiceInfo(Screen):
 			self.feinfo = None
 		else:
 			self.type = TYPE_SERVICE_INFO
-			self["key_red"] = self["red"] = Label(_("Service"))
-			self["key_green"] = self["green"] = Label(_("PIDs"))
-			self["key_yellow"] = self["yellow"] = Label(_("Multiplex"))
-			self["key_blue"] = self["blue"] = Label(_("Tuner status"))
+			self["red"] = Label(_("Service"))
+			self["green"] = Label(_("PIDs"))
+			self["yellow"] = Label(_("Multiplex"))
+			self["blue"] = Label(_("Tuner status"))
 			service = session.nav.getCurrentService()
 			if service is not None:
 				self.info = service.info()
 				self.feinfo = service.frontendInfo()
+				print self.info.getInfoObject(iServiceInformation.sCAIDs);
 			else:
 				self.info = None
 				self.feinfo = None
@@ -108,60 +113,59 @@ class ServiceInfo(Screen):
 
 	def information(self):
 		if self.type == TYPE_SERVICE_INFO:
-			if self.session.nav.getCurrentlyPlayingServiceOrGroup():
+			if self.session.nav.getCurrentlyPlayingServiceReference():
 				name = ServiceReference(self.session.nav.getCurrentlyPlayingServiceReference()).getServiceName()
 				refstr = self.session.nav.getCurrentlyPlayingServiceReference().toString()
 			else:
 				name = _("N/A")
 				refstr = _("N/A")
-			aspect = "-"
-			videocodec = "-"
-			resolution = "-"
-			if self.info:
-				videocodec =  ("MPEG2", "MPEG4", "MPEG1", "MPEG4-II", "VC1", "VC1-SM", "-" )[self.info and self.info.getInfo(iServiceInformation.sVideoType)]
-				width = self.info.getInfo(iServiceInformation.sVideoWidth)
-				height = self.info.getInfo(iServiceInformation.sVideoHeight)
-				if width > 0 and height > 0:
-					resolution = "%dx%d" % (width,height)
-					resolution += ("i", "p", "")[self.info.getInfo(iServiceInformation.sProgressive)]
-					resolution += str((self.info.getInfo(iServiceInformation.sFrameRate) + 500) / 1000)
-					aspect = self.getServiceInfoValue(iServiceInformation.sAspect)
-					if aspect in ( 1, 2, 5, 6, 9, 0xA, 0xD, 0xE ):
-						aspect = "4:3"
-					else:
-						aspect = "16:9"
-
-			Labels = ( (_("Name"), name, TYPE_TEXT),
-					(_("Provider"), self.getServiceInfoValue(iServiceInformation.sProvider), TYPE_TEXT),
-					(_("Videoformat"), aspect, TYPE_TEXT),
-					(_("Videosize"), resolution, TYPE_TEXT),
-					(_("Videocodec"), videocodec, TYPE_TEXT),
-					(_("Namespace"), self.getServiceInfoValue(iServiceInformation.sNamespace), TYPE_VALUE_HEX, 8),
-					(_("Service reference"), refstr, TYPE_TEXT))
-
+			aspect = self.getServiceInfoValue(iServiceInformation.sAspect)
+			if aspect in ( 1, 2, 5, 6, 9, 0xA, 0xD, 0xE ):
+				aspect = _("4:3")
+			else:
+				aspect = _("16:9")
+			width = self.info and self.info.getInfo(iServiceInformation.sVideoWidth) or -1
+			height = self.info and self.info.getInfo(iServiceInformation.sVideoHeight) or -1
+			if width != -1 and height != -1:
+				Labels = ( (_("Name"), name, TYPE_TEXT),
+						   (_("Provider"), self.getServiceInfoValue(iServiceInformation.sProvider), TYPE_TEXT),
+						   (_("Aspect ratio"), aspect, TYPE_TEXT),
+						   (_("Resolution"), "%dx%d" %(width, height), TYPE_TEXT),
+						   (_("Namespace"), self.getServiceInfoValue(iServiceInformation.sNamespace), TYPE_VALUE_HEX, 8),
+						   (_("Service reference"), refstr, TYPE_TEXT))
+			else:
+				Labels = ( (_("Name"), name, TYPE_TEXT),
+						   (_("Provider"), self.getServiceInfoValue(iServiceInformation.sProvider), TYPE_TEXT),
+						   (_("Aspect ratio"), aspect, TYPE_TEXT),
+						   (_("Namespace"), self.getServiceInfoValue(iServiceInformation.sNamespace), TYPE_VALUE_HEX, 8),
+						   (_("Service reference"), refstr, TYPE_TEXT))
 			self.fillList(Labels)
 		else:
 			if self.transponder_info:
 				tp_info = ConvertToHumanReadable(self.transponder_info)
-				conv = { "tuner_type" 		: _("Transponder type"),
-						 "system"			: _("System"),
-						 "modulation"		: _("Modulation"),
-						 "orbital_position" : _("Orbital position"),
-						 "frequency"		: _("Frequency"),
-						 "symbol_rate"		: _("Symbol rate"),
-						 "bandwidth"		: _("Bandwidth"),
-						 "polarization"		: _("Polarization"),
-						 "inversion"		: _("Inversion"),
-						 "pilot"			: _("Pilot"),
-						 "rolloff"			: _("Roll-off"),
-						 "fec_inner"		: _("FEC"),
-						 "code_rate_lp"		: _("Coderate LP"),
-						 "code_rate_hp"		: _("Coderate HP"),
-						 "constellation"	: _("Constellation"),
-						 "transmission_mode": _("Transmission mode"),
-						 "guard_interval" 	: _("Guard interval"),
-						 "hierarchy_information": _("Hierarchy information") }
-				Labels = [(conv[i], tp_info[i], i == "orbital_position" and TYPE_VALUE_ORBIT_DEC or TYPE_VALUE_DEC) for i in tp_info.keys() if i in conv]
+				conv = { "tuner_type"			: _("Type"),
+					 "system"			: _("System"),
+					 "modulation"			: _("Modulation"),
+					 "orbital_position"		: _("Orbital position"),
+					 "frequency"			: _("Frequency"),
+					 "symbol_rate"			: _("Symbol rate"),
+					 "bandwidth"			: _("Bandwidth"),
+					 "polarization"			: _("Polarization"),
+					 "inversion"			: _("Inversion"),
+					 "pilot"			: _("Pilot"),
+					 "rolloff"			: _("Roll-off"),
+					 "fec_inner"			: _("FEC"),
+					 "code_rate_lp"			: _("Code rate LP"),
+					 "code_rate_hp"			: _("Code rate HP"),
+					 "constellation"		: _("Constellation"),
+					 "transmission_mode"		: _("Transmission mode"),
+					 "guard_interval" 		: _("Guard interval"),
+					 "hierarchy_information"	: _("Hierarchy info"),
+					 "plp_id"			: _("PLP ID"),
+					 "is_id"			: _("Input Stream ID"),
+					 "pls_mode"			: _("PLS Mode"),
+					 "pls_code"			: _("PLS Code")}
+				Labels = [(conv[i], tp_info[i], TYPE_VALUE_DEC) for i in tp_info.keys()]
 				self.fillList(Labels)
 
 	def pids(self):
@@ -175,17 +179,17 @@ class ServiceInfo(Screen):
 					   (_("ONID"), self.getServiceInfoValue(iServiceInformation.sONID), TYPE_VALUE_HEX_DEC, 4),
 					   (_("SID"), self.getServiceInfoValue(iServiceInformation.sSID), TYPE_VALUE_HEX_DEC, 4))
 			self.fillList(Labels)
-
+	
 	def showFrontendData(self, real):
 		if self.type == TYPE_SERVICE_INFO:
 			frontendData = self.feinfo and self.feinfo.getAll(real)
 			Labels = self.getFEData(frontendData)
 			self.fillList(Labels)
-
+	
 	def transponder(self):
 		if self.type == TYPE_SERVICE_INFO:
 			self.showFrontendData(True)
-
+		
 	def tuner(self):
 		if self.type == TYPE_SERVICE_INFO:
 			self.showFrontendData(False)
@@ -194,7 +198,7 @@ class ServiceInfo(Screen):
 		if frontendDataOrg and len(frontendDataOrg):
 			frontendData = ConvertToHumanReadable(frontendDataOrg)
 			if frontendDataOrg["tuner_type"] == "DVB-S":
-				return ((_("NIM"), chr(ord('A') + frontendData["tuner_number"]), TYPE_TEXT),
+				data = ((_("NIM"), chr(ord('A')+int(frontendData["tuner_number"])), TYPE_TEXT),
 						(_("Type"), frontendData["tuner_type"], TYPE_TEXT),
 						(_("System"), frontendData["system"], TYPE_TEXT),
 						(_("Modulation"), frontendData["modulation"], TYPE_TEXT),
@@ -206,8 +210,13 @@ class ServiceInfo(Screen):
 						(_("FEC"), frontendData["fec_inner"], TYPE_TEXT),
 						(_("Pilot"), frontendData.get("pilot", None), TYPE_TEXT),
 						(_("Roll-off"), frontendData.get("rolloff", None), TYPE_TEXT))
+				if nimmanager.isSupportMultistream(int(frontendData["tuner_number"])):
+					data += ((_("Input Stream ID"), frontendData.get("is_id", 0), TYPE_VALUE_DEC),
+						(_("PLS Mode"), frontendData.get("pls_mode", None), TYPE_TEXT),
+						(_("PLS Code"), frontendData.get("pls_code", 0), TYPE_VALUE_DEC))
+				return data
 			elif frontendDataOrg["tuner_type"] == "DVB-C":
-				return ((_("NIM"), chr(ord('A') + frontendData["tuner_number"]), TYPE_TEXT),
+				return ((_("NIM"), chr(ord('A')+int(frontendData["tuner_number"])), TYPE_TEXT),
 						(_("Type"), frontendData["tuner_type"], TYPE_TEXT),
 						(_("Modulation"), frontendData["modulation"], TYPE_TEXT),
 						(_("Frequency"), frontendData["frequency"], TYPE_VALUE_DEC),
@@ -215,10 +224,10 @@ class ServiceInfo(Screen):
 						(_("Inversion"), frontendData["inversion"], TYPE_TEXT),
 						(_("FEC"), frontendData["fec_inner"], TYPE_TEXT))
 			elif frontendDataOrg["tuner_type"] == "DVB-T":
-				return ((_("NIM"), chr(ord('A') + frontendData["tuner_number"]), TYPE_TEXT),
+				data = ((_("NIM"), chr(ord('A')+int(frontendData["tuner_number"])), TYPE_TEXT),
 						(_("Type"), frontendData["tuner_type"], TYPE_TEXT),
+						(_("System"), frontendData["system"], TYPE_TEXT),
 						(_("Frequency"), frontendData["frequency"], TYPE_VALUE_DEC),
-						(_("Channel"), getChannelNumber(frontendData["frequency"], frontendData["tuner_number"]), TYPE_VALUE_DEC),
 						(_("Inversion"), frontendData["inversion"], TYPE_TEXT),
 						(_("Bandwidth"), frontendData["bandwidth"], TYPE_VALUE_DEC),
 						(_("Code rate LP"), frontendData["code_rate_lp"], TYPE_TEXT),
@@ -227,6 +236,10 @@ class ServiceInfo(Screen):
 						(_("Transmission mode"), frontendData["transmission_mode"], TYPE_TEXT),
 						(_("Guard interval"), frontendData["guard_interval"], TYPE_TEXT),
 						(_("Hierarchy info"), frontendData["hierarchy_information"], TYPE_TEXT))
+				if frontendData.has_key("plp_id"):
+					data += ((_("PLP ID"), frontendData["plp_id"], TYPE_VALUE_DEC), )
+				return data
+
 		return [ ]
 
 	def fillList(self, Labels):
@@ -246,7 +259,7 @@ class ServiceInfo(Screen):
 	def getServiceInfoValue(self, what):
 		if self.info is None:
 			return ""
-
+		
 		v = self.info.getInfo(what)
 		if v == -2:
 			v = self.info.getInfoString(what)

@@ -91,7 +91,7 @@ class GUISkin:
 				if title:
 					self.skinAttributes[skin_title_idx] = ("title", title)
 				else:
-					self["Title"].text = value
+					self["Title"].text = value and _(value)
 					self.summaries.setTitle(value)
 			elif key == "baseResolution":
 				baseres = tuple([int(x) for x in value.split(',')])

@@ -2,13 +2,10 @@ from Screen import Screen
 from Components.ActionMap import ActionMap
 from Components.config import config
 from Components.AVSwitch import AVSwitch
-from Components.Harddisk import internalHDDNotSleeping
 from Components.SystemInfo import SystemInfo
-from Tools import Notifications
 from GlobalActions import globalActionMap
-import RecordTimer
-from enigma import eDVBVolumecontrol, eTimer, eDVBLocalTimeHandler, eServiceReference
-from time import time, localtime
+from enigma import eDVBVolumecontrol
+from os import system
 
 inStandby = None
 
@@ -27,7 +24,7 @@ class Standby(Screen):
 		if (eDVBVolumecontrol.getInstance().isMuted()):
 			self.wasMuted = 1
 			print "mute already active"
-		else:
+		else:	
 			self.wasMuted = 0
 			eDVBVolumecontrol.getInstance().volumeToggleMute()
 
@@ -35,7 +32,7 @@ class Standby(Screen):
 		if self.wasMuted == 0:
 			eDVBVolumecontrol.getInstance().volumeToggleMute()
 
-	def __init__(self, session, StandbyCounterIncrease=True):
+	def __init__(self, session):
 		Screen.__init__(self, session)
 		self.avswitch = AVSwitch()
 
@@ -43,113 +40,55 @@ class Standby(Screen):
 
 		self["actions"] = ActionMap( [ "StandbyActions" ],
 		{
-			"power": self.Power,
-			"discrete_on": self.Power
+			"power": self.Power
 		}, -1)
 
 		globalActionMap.setEnabled(False)
-
-		from Screens.InfoBar import InfoBar
-		self.infoBarInstance = InfoBar.instance
-		self.StandbyCounterIncrease = StandbyCounterIncrease
-		self.standbyTimeoutTimer = eTimer()
-		self.standbyTimeoutTimer.callback.append(self.standbyTimeout)
-		self.standbyStopServiceTimer = eTimer()
-		self.standbyStopServiceTimer.callback.append(self.stopService)
-		self.timeHandler = None
 
 		#mute adc
 		self.setMute()
 
 		self.paused_service = None
 		self.prev_running_service = None
-
-		self.prev_running_service = self.session.nav.getCurrentlyPlayingServiceOrGroup()
-		service = self.prev_running_service and self.prev_running_service.toString()
-		if service:
-			if service.rsplit(":", 1)[1].startswith("/"):
-				self.paused_service = True
-				self.infoBarInstance.pauseService()
-			else:
-				self.timeHandler =  eDVBLocalTimeHandler.getInstance()
-				if self.timeHandler.ready():
-					if self.session.nav.getCurrentlyPlayingServiceOrGroup():
-						self.stopService()
-					else:
-						self.standbyStopServiceTimer.startLongTimer(5)
-					self.timeHandler = None
-				else:
-					self.timeHandler.m_timeUpdated.get().append(self.stopService)
-
-		if self.session.pipshown:
-			self.infoBarInstance and hasattr(self.infoBarInstance, "showPiP") and self.infoBarInstance.showPiP()
+		if self.session.current_dialog:
+			if self.session.current_dialog.ALLOW_SUSPEND == Screen.SUSPEND_STOPS:
+				#get currently playing service reference
+				self.prev_running_service = self.session.nav.getCurrentlyPlayingServiceReference()
+				#stop actual played dvb-service
+				self.session.nav.stopService()
+			elif self.session.current_dialog.ALLOW_SUSPEND == Screen.SUSPEND_PAUSES:
+				self.paused_service = self.session.current_dialog
+				self.paused_service.pauseService()
 
 		#set input to vcr scart
 		if SystemInfo["ScartSwitch"]:
 			self.avswitch.setInput("SCART")
 		else:
 			self.avswitch.setInput("AUX")
-
-		gotoShutdownTime = int(config.usage.standby_to_shutdown_timer.value)
-		if gotoShutdownTime:
-			self.standbyTimeoutTimer.startLongTimer(gotoShutdownTime)
-
 		self.onFirstExecBegin.append(self.__onFirstExecBegin)
 		self.onClose.append(self.__onClose)
+
 
 	def __onClose(self):
 		global inStandby
 		inStandby = None
-		self.standbyTimeoutTimer.stop()
-		self.standbyStopServiceTimer.stop()
-		self.timeHandler and self.timeHandler.m_timeUpdated.get().remove(self.stopService)
-		if self.paused_service:
-			self.infoBarInstance.unPauseService()
-		elif self.prev_running_service:
-			service = self.prev_running_service.toString()
-			if config.servicelist.startupservice_onstandby.value:
-				self.session.nav.playService(eServiceReference(config.servicelist.startupservice.value))
-				from Screens.InfoBar import InfoBar
-				InfoBar.instance and InfoBar.instance.servicelist.correctChannelNumber()
-			else:
-				self.session.nav.playService(self.prev_running_service)
+		if self.prev_running_service:
+			self.session.nav.playService(self.prev_running_service)
+		elif self.paused_service:
+			self.paused_service.unPauseService()
 		self.session.screen["Standby"].boolean = False
 		globalActionMap.setEnabled(True)
-		if RecordTimer.RecordTimerEntry.receiveRecordEvents:
-			RecordTimer.RecordTimerEntry.stopTryQuitMainloop()
 
 	def __onFirstExecBegin(self):
 		global inStandby
 		inStandby = self
 		self.session.screen["Standby"].boolean = True
-		if self.StandbyCounterIncrease:
-			config.misc.standbyCounter.value += 1
-
-	def stopService(self):
-		self.session.nav.stopService()
+		config.misc.standbyCounter.value += 1
+# check for updates
+		system ("opkg update && opkg list_upgradable > /tmp/updatebool &")
 
 	def createSummary(self):
 		return StandbySummary
-
-	def standbyTimeout(self):
-		if config.usage.standby_to_shutdown_timer_blocktime.value:
-			curtime = localtime(time())
-			if curtime.tm_year > 1970: #check if the current time is valid
-				curtime = (curtime.tm_hour, curtime.tm_min, curtime.tm_sec)
-				begintime = tuple(config.usage.standby_to_shutdown_timer_blocktime_begin.value)
-				endtime = tuple(config.usage.standby_to_shutdown_timer_blocktime_end.value)
-				if begintime <= endtime and (curtime >= begintime and curtime < endtime) or begintime > endtime and (curtime >= begintime or curtime < endtime):
-					duration = (endtime[0]*3600 + endtime[1]*60) - (curtime[0]*3600 + curtime[1]*60 + curtime[2])
-					if duration:
-						if duration < 0:
-							duration += 24*3600
-						self.standbyTimeoutTimer.startLongTimer(duration)
-						return
-		if self.session.screen["TunerInfo"].tuner_use_mask or internalHDDNotSleeping():
-			self.standbyTimeoutTimer.startLongTimer(600)
-		else:
-			from RecordTimer import RecordTimerEntry
-			RecordTimerEntry.TryQuitMainloop()
 
 class StandbySummary(Screen):
 	skin = """
@@ -167,13 +106,14 @@ from enigma import quitMainloop, iRecordableService
 from Screens.MessageBox import MessageBox
 from time import time
 from Components.Task import job_manager
+from Components.config import ConfigYesNo,NoSave
 
 class QuitMainloopScreen(Screen):
 
 	def __init__(self, session, retvalue=1):
-		self.skin = """<screen name="QuitMainloopScreen" position="fill" flags="wfNoBorder">
-				<ePixmap pixmap="skin_default/icons/input_info.png" position="c-27,c-60" size="53,53" alphatest="on" />
-				<widget name="text" position="center,c+5" size="720,100" font="Regular;22" halign="center" />
+		self.skin = """<screen name="QuitMainloopScreen" position="0,0" size="1280,720" flags="wfNoBorder">
+				<ePixmap pixmap="skin_default/icons/input_info.png" position="613,300" size="53,53" alphatest="on" />
+				<widget name="text" position="0,360" size="1280,100" font="Regular;22" halign="center" />
 			</screen>"""
 		Screen.__init__(self, session)
 		from Components.Label import Label
@@ -186,17 +126,18 @@ class QuitMainloopScreen(Screen):
 		self["text"] = Label(text)
 
 inTryQuitMainloop = False
+config.misc.DeepStandbyOn = NoSave(ConfigYesNo(default=False))
 
 class TryQuitMainloop(MessageBox):
-	def __init__(self, session, retvalue=1, timeout=-1, default_yes = False):
-		self.retval = retvalue
+	def __init__(self, session, retvalue=1, timeout=-1, default_yes = True):
+		self.retval=retvalue
 		recordings = session.nav.getRecordings()
 		jobs = len(job_manager.getPendingJobs())
 		self.connected = False
 		reason = ""
 		next_rec_time = -1
 		if not recordings:
-			next_rec_time = session.nav.RecordTimer.getNextRecordingTime()
+			next_rec_time = session.nav.RecordTimer.getNextRecordingTime()	
 		if recordings or (next_rec_time > 0 and (next_rec_time - time()) < 360):
 			reason = _("Recording(s) are in progress or coming up in few seconds!") + '\n'
 		if jobs:
@@ -204,24 +145,25 @@ class TryQuitMainloop(MessageBox):
 				job = job_manager.getPendingJobs()[0]
 				reason += "%s: %s (%d%%)\n" % (job.getStatustext(), job.name, int(100*job.progress/float(job.end)))
 			else:
-				reason += (ngettext("%d job is running in the background!", "%d jobs are running in the background!", jobs) % jobs) + '\n'
+				reason += (_("%d jobs are running in the background!") % jobs) + '\n'
 		if reason:
-			text = { 1: _("Really shutdown now?"),
-				2: _("Really reboot now?"),
-				3: _("Really restart now?"),
-				4: _("Really upgrade the frontprocessor and reboot now?"),
-				42: _("Really upgrade your settop box and reboot now?") }.get(retvalue)
-			if text:
-				MessageBox.__init__(self, session, reason+text, type = MessageBox.TYPE_YESNO, timeout = timeout, default = default_yes)
-				self.skinName = "MessageBoxSimple"
-				session.nav.record_event.append(self.getRecordEvent)
-				self.connected = True
-				self.onShow.append(self.__onShow)
-				self.onHide.append(self.__onHide)
-				return
-		self.skin = """<screen position="0,0" size="0,0"/>"""
-		Screen.__init__(self, session)
-		self.close(True)
+			if retvalue == 1:
+				MessageBox.__init__(self, session, reason+_("Really shutdown now?"), type = MessageBox.TYPE_YESNO, timeout = timeout, default = default_yes)
+			elif retvalue == 2:
+				MessageBox.__init__(self, session, reason+_("Really reboot now?"), type = MessageBox.TYPE_YESNO, timeout = timeout, default = default_yes)
+			elif retvalue == 4:
+				pass
+			else:
+				MessageBox.__init__(self, session, reason+_("Really restart now?"), type = MessageBox.TYPE_YESNO, timeout = timeout, default = default_yes)
+			self.skinName = "MessageBox"
+			session.nav.record_event.append(self.getRecordEvent)
+			self.connected = True
+			self.onShow.append(self.__onShow)
+			self.onHide.append(self.__onHide)
+		else:
+			self.skin = """<screen position="0,0" size="0,0"/>"""
+			Screen.__init__(self, session)
+			self.close(True)
 
 	def getRecordEvent(self, recservice, event):
 		if event == iRecordableService.evEnd:
@@ -242,11 +184,12 @@ class TryQuitMainloop(MessageBox):
 			self.session.nav.record_event.remove(self.getRecordEvent)
 		if value:
 			self.hide()
-			if self.retval == 1:
-				config.misc.DeepStandby.value = True
-			elif not inStandby:
-				config.misc.RestartUI.value = True
-				config.misc.RestartUI.save()
+			if self.retval ==1:
+				config.misc.DeepStandbyOn.value=True
+# WARNING HACK !! Black Hole dirty hack
+			if self.retval == 1 or self.retval == 2:
+				system("umount -a -f -t nfs,smbfs,cifs,ncpfs")
+#end
 			self.session.nav.stopService()
 			self.quitScreen = self.session.instantiateDialog(QuitMainloopScreen,retvalue=self.retval)
 			self.quitScreen.show()
@@ -261,3 +204,16 @@ class TryQuitMainloop(MessageBox):
 	def __onHide(self):
 		global inTryQuitMainloop
 		inTryQuitMainloop = False
+
+#Delite
+from os import system
+class DeliteReboot(Screen):
+	def __init__(self, session):
+		self.skin = """<screen position="0,0" size="0,0"/>"""
+		Screen.__init__(self, session)
+		self.close(True)
+		system("/etc/init.d/umountfs")
+		system("umount -a -f -t nfs,smbfs,cifs,ncpfs")
+		system("reboot")
+
+

@@ -1,11 +1,12 @@
 import NavigationInstance
 from time import localtime, mktime, gmtime
 from ServiceReference import ServiceReference
-from enigma import iServiceInformation, eServiceCenter, eServiceReference, getBestPlayableServiceReference
+from enigma import iServiceInformation, eServiceCenter, eServiceReference
 from timer import TimerEntry
 
 class TimerSanityCheck:
 	def __init__(self, timerlist, newtimer=None):
+		print "sanitycheck"
 		self.localtimediff = 25*3600 - mktime(gmtime(25*3600))
 		self.timerlist = timerlist
 		self.newtimer = newtimer
@@ -16,6 +17,7 @@ class TimerSanityCheck:
 		self.eflag = 1
 
 	def check(self, ext_timer=1):
+		print "check"
 		if ext_timer != 1:
 			self.newtimer = ext_timer
 		if self.newtimer is None:
@@ -31,10 +33,10 @@ class TimerSanityCheck:
 		if self.newtimer is not None and self.newtimer.service_ref.ref.valid():
 			self.simultimer = [ self.newtimer ]
 			for timer in self.timerlist:
-				if timer == self.newtimer:
+				if (timer == self.newtimer):
 					return True
 				else:
-					if self.newtimer.begin >= timer.begin and self.newtimer.end <= timer.end:
+					if timer.begin == self.newtimer.begin:
 						fl1 = timer.service_ref.ref.flags & eServiceReference.isGroup
 						fl2 = self.newtimer.service_ref.ref.flags & eServiceReference.isGroup
 						if fl1 != fl2:
@@ -59,6 +61,7 @@ class TimerSanityCheck:
 		# count of running timers
 
 		serviceHandler = eServiceCenter.getInstance()
+		print "checkTimerlist"
 # create a list with all start and end times
 # split it into recurring and singleshot timers
 
@@ -172,10 +175,7 @@ class TimerSanityCheck:
 				timer = self.timerlist[event[2]]
 			if event[1] == self.bflag:
 				tunerType = [ ]
-				if timer.service_ref.ref and timer.service_ref.ref.flags & eServiceReference.isGroup:
-					fakeRecService = NavigationInstance.instance.recordService(getBestPlayableServiceReference(timer.service_ref.ref, eServiceReference()), True)
-				else:
-					fakeRecService = NavigationInstance.instance.recordService(timer.service_ref, True)
+				fakeRecService = NavigationInstance.instance.recordService(timer.service_ref, True)
 				if fakeRecService:
 					fakeRecResult = fakeRecService.start(True)
 				else:
@@ -197,7 +197,7 @@ class TimerSanityCheck:
 							for ref in serviceList.getContent("R"): # iterate over all group service references
 								type = getServiceType(ref)
 								if not type in tunerType: # just add single time
-									tunerType.append(type)
+									tunerType.append(type) 
 					else:
 						tunerType.append(getServiceType(ref))
 
@@ -261,7 +261,6 @@ class TimerSanityCheck:
 								break
 
 		if len(self.simultimer) < 2:
-			print "Possible Bug: unknown Conflict!"
-			return True
+			print "Bug: unknown Conflict!"
 
 		return False # conflict detected!

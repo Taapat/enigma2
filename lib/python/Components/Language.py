@@ -1,62 +1,53 @@
-# -*- coding: UTF-8 -*-
 import gettext
-import locale
-import os
 
 from Tools.Directories import SCOPE_LANGUAGE, resolveFilename
+
+import language_cache
 
 class Language:
 	def __init__(self):
 		gettext.install('enigma2', resolveFilename(SCOPE_LANGUAGE, ""), unicode=0, codeset="utf-8")
 		self.activeLanguage = 0
-		self.catalog = None
 		self.lang = {}
 		self.langlist = []
 		# FIXME make list dynamically
 		# name, iso-639 language, iso-3166 country. Please don't mix language&country!
-		self.addLanguage("Arabic",      "ar", "AE", "ISO-8859-15")
-		self.addLanguage("Български",   "bg", "BG", "ISO-8859-15")
-		self.addLanguage("Català",      "ca", "AD", "ISO-8859-15")
-		self.addLanguage("Česky",       "cs", "CZ", "ISO-8859-15")
-		self.addLanguage("Dansk",       "da", "DK", "ISO-8859-15")
-		self.addLanguage("Deutsch",     "de", "DE", "ISO-8859-15")
-		self.addLanguage("Ελληνικά",    "el", "GR", "ISO-8859-7")
-		self.addLanguage("English",     "en", "EN", "ISO-8859-15")
-		self.addLanguage("Español",     "es", "ES", "ISO-8859-15")
-		self.addLanguage("Eesti",       "et", "EE", "ISO-8859-15")
-		self.addLanguage("Persian",     "fa", "IR", "ISO-8859-15")
-		self.addLanguage("Suomi",       "fi", "FI", "ISO-8859-15")
-		self.addLanguage("Français",    "fr", "FR", "ISO-8859-15")
-		self.addLanguage("Frysk",       "fy", "NL", "ISO-8859-15")
-		self.addLanguage("Hebrew",      "he", "IL", "ISO-8859-15")
-		self.addLanguage("Hrvatski",    "hr", "HR", "ISO-8859-15")
-		self.addLanguage("Magyar",      "hu", "HU", "ISO-8859-15")
-		self.addLanguage("Íslenska",    "is", "IS", "ISO-8859-15")
-		self.addLanguage("Italiano",    "it", "IT", "ISO-8859-15")
-		self.addLanguage("Kurdish",     "ku", "KU", "ISO-8859-15")
-		self.addLanguage("Lietuvių",    "lt", "LT", "ISO-8859-15")
-		self.addLanguage("Latviešu",    "lv", "LV", "ISO-8859-15")
-		self.addLanguage("Nederlands",  "nl", "NL", "ISO-8859-15")
-		self.addLanguage("Norsk Bokmål","nb", "NO", "ISO-8859-15")
-		self.addLanguage("Norsk",       "no", "NO", "ISO-8859-15")
-		self.addLanguage("Polski",      "pl", "PL", "ISO-8859-15")
-		self.addLanguage("Português",   "pt", "PT", "ISO-8859-15")
-		self.addLanguage("Português do Brasil",  "pt", "BR", "ISO-8859-15")
-		self.addLanguage("Romanian",    "ro", "RO", "ISO-8859-15")
-		self.addLanguage("Русский",     "ru", "RU", "ISO-8859-15")
-		self.addLanguage("Slovensky",   "sk", "SK", "ISO-8859-15")
-		self.addLanguage("Slovenščina", "sl", "SI", "ISO-8859-15")
-		self.addLanguage("Srpski",      "sr", "YU", "ISO-8859-15")
-		self.addLanguage("Svenska",     "sv", "SE", "ISO-8859-15")
-		self.addLanguage("ภาษาไทย",     "th", "TH", "ISO-8859-15")
-		self.addLanguage("Türkçe",      "tr", "TR", "ISO-8859-15")
-		self.addLanguage("Ukrainian",   "uk", "UA", "ISO-8859-15")
+		# also, see "precalcLanguageList" below on how to re-create the language cache after you added a language
+		self.addLanguage(_("English"), "en", "EN")
+		self.addLanguage(_("German"), "de", "DE")
+		self.addLanguage(_("Arabic"), "ar", "AE")
+		self.addLanguage(_("Catalan"), "ca", "AD")
+		self.addLanguage(_("Croatian"), "hr", "HR")
+		self.addLanguage(_("Czech"), "cs", "CZ")
+		self.addLanguage(_("Danish"), "da", "DK")
+		self.addLanguage(_("Dutch"), "nl", "NL")
+		self.addLanguage(_("Estonian"), "et", "EE")
+		self.addLanguage(_("Finnish"), "fi", "FI")
+		self.addLanguage(_("French"), "fr", "FR")
+		self.addLanguage(_("Greek"), "el", "GR")
+		self.addLanguage(_("Hungarian"), "hu", "HU")
+		self.addLanguage(_("Lithuanian"), "lt", "LT")
+		self.addLanguage(_("Latvian"), "lv", "LV")
+		self.addLanguage(_("Icelandic"), "is", "IS")
+		self.addLanguage(_("Italian"), "it", "IT")
+		self.addLanguage(_("Norwegian"), "no", "NO")
+		self.addLanguage(_("Polish"), "pl", "PL")
+		self.addLanguage(_("Portuguese"), "pt", "PT")
+		self.addLanguage(_("Russian"), "ru", "RU")
+		self.addLanguage(_("Serbian"), "sr", "YU")
+		self.addLanguage(_("Slovakian"), "sk", "SK")
+		self.addLanguage(_("Slovenian"), "sl", "SI")
+		self.addLanguage(_("Spanish"), "es", "ES")
+		self.addLanguage(_("Swedish"), "sv", "SE")
+		self.addLanguage(_("Turkish"), "tr", "TR")
+		self.addLanguage(_("Ukrainian"), "uk", "UA")
+		self.addLanguage(_("Frisian"), "fy", "x-FY") # there is no separate country for frisian
 
 		self.callbacks = []
 
-	def addLanguage(self, name, lang, country, encoding):
+	def addLanguage(self, name, lang, country):
 		try:
-			self.lang[str(lang + "_" + country)] = ((name, lang, country, encoding))
+			self.lang[str(lang + "_" + country)] = ((_(name), lang, country))
 			self.langlist.append(str(lang + "_" + country))
 		except:
 			print "Language " + str(name) + " not found"
@@ -65,23 +56,12 @@ class Language:
 		try:
 			lang = self.lang[index]
 			print "Activating language " + lang[0]
-			self.catalog = gettext.translation('enigma2', resolveFilename(SCOPE_LANGUAGE, ""), languages=[index])
-			self.catalog.install(names=("ngettext", "pgettext"))
+			gettext.translation('enigma2', resolveFilename(SCOPE_LANGUAGE, ""), languages=[lang[1]]).install()
 			self.activeLanguage = index
 			for x in self.callbacks:
 				x()
 		except:
 			print "Selected language does not exist!"
-		# NOTE: we do not use LC_ALL, because LC_ALL will not set any of the categories, when one of the categories fails.
-		# We'd rather try to set all available categories, and ignore the others
-		for category in [locale.LC_CTYPE, locale.LC_COLLATE, locale.LC_TIME, locale.LC_MONETARY, locale.LC_MESSAGES, locale.LC_NUMERIC]:
-			try:
-				locale.setlocale(category, (self.getLanguage(), 'UTF-8'))
-			except:
-				pass
-		# HACK: sometimes python 2.7 reverts to the LC_TIME environment value, so make sure it has the correct value
-		os.environ["LC_TIME"] = self.getLanguage() + '.UTF-8'
-		os.environ["GST_SUBTITLE_ENCODING"] = self.getGStreamerSubtitleEncoding()
 
 	def activateLanguageIndex(self, index):
 		if index < len(self.langlist):
@@ -92,17 +72,14 @@ class Language:
 
 	def getActiveLanguage(self):
 		return self.activeLanguage
-
-	def getActiveCatalog(self):
-		return self.catalog
-
+	
 	def getActiveLanguageIndex(self):
 		idx = 0
 		for x in self.langlist:
 			if x == self.activeLanguage:
 				return idx
 			idx += 1
-		return None
+		return None			
 
 	def getLanguage(self):
 		try:
@@ -110,13 +87,26 @@ class Language:
 		except:
 			return ''
 
-	def getGStreamerSubtitleEncoding(self):
-		try:
-			return str(self.lang[self.activeLanguage][3])
-		except:
-			return 'ISO-8859-15'
-
 	def addCallback(self, callback):
 		self.callbacks.append(callback)
+
+	def precalcLanguageList(self):
+		# excuse me for those T1, T2 hacks please. The goal was to keep the language_cache.py as small as possible, *and* 
+		# don't duplicate these strings.
+		T1 = _("Please use the UP and DOWN keys to select your language. Afterwards press the OK button.")
+		T2 = _("Language selection")
+		l = open("language_cache.py", "w")
+		print >>l, "# -*- coding: UTF-8 -*-"
+		print >>l, "LANG_TEXT = {"
+		for language in self.langlist:
+			self.activateLanguage(language)
+			print >>l, '"%s": {' % language
+			for name, lang, country in self.lang.values():
+				print >>l, '\t"%s_%s": "%s",' % (lang, country, _(name))
+
+			print >>l, '\t"T1": "%s",' % (_(T1))
+			print >>l, '\t"T2": "%s",' % (_(T2))
+			print >>l, '},'
+		print >>l, "}"
 
 language = Language()

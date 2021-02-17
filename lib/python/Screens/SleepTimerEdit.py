@@ -1,118 +1,163 @@
-from Screens.InfoBar import InfoBar
 from Screens.Screen import Screen
 from Screens.MessageBox import MessageBox
-from Components.ActionMap import ActionMap
-from Components.ConfigList import ConfigListScreen
+from Components.ActionMap import NumberActionMap
+from Components.Input import Input
 from Components.Label import Label
-from Components.Sources.StaticText import StaticText
-from Components.config import config, getConfigListEntry
+from Components.Pixmap import Pixmap
+from Components.config import config, ConfigInteger
+from Components.SystemInfo import SystemInfo
 from enigma import eEPGCache
+from SleepTimer import SleepTimer
 from time import time
 
-class SleepTimerEdit(ConfigListScreen, Screen):
+config.SleepTimer.defaulttime = ConfigInteger(default = 30)
+
+class SleepTimerEdit(Screen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
-		self.skinName = ["SleepTimerSetup", "Setup"]
-		self.setup_title = _("SleepTimer Configuration")
-
-		self["key_red"] = StaticText(_("Cancel"))
-		self["key_green"] = StaticText(_("Save"))
-		self["description"] = Label("")
-
-		self.list = []
-		ConfigListScreen.__init__(self, self.list, session = session)
-		self.createSetup()
-
-		self["setupActions"] = ActionMap(["SetupActions", "ColorActions"],
-		{
-		    "green": self.ok,
-		    "red": self.cancel,
-		    "cancel": self.cancel,
-		    "ok": self.ok,
-		}, -2)
-
-		self.onLayoutFinish.append(self.layoutFinished)
-
-	def layoutFinished(self):
-		self.setTitle(self.setup_title)
-
-	def createSetup(self):
-		self.list = []
-		if InfoBar.instance and InfoBar.instance.sleepTimer.isActive():
-			statusSleeptimerText = _("(activated +%d min)") % InfoBar.instance.sleepTimerState()
+		
+		self["red"] = Pixmap()
+		self["green"] = Pixmap()
+		self["yellow"] = Pixmap()
+		self["blue"] = Pixmap()
+		self["red_text"] = Label()
+		self["green_text"] = Label()
+		self["yellow_text"] = Label()
+		self["blue_text"] = Label()
+		self["current_status"] = Label()
+		self.is_active = self.session.nav.SleepTimer.isActive()
+		if self.is_active:
+			self["current_status"].setText(_("Timer status:") + " " + _("Enabled"))
 		else:
-			statusSleeptimerText = _("(not activated)")
-		self.list.append(getConfigListEntry(_("Sleeptimer") + " " + statusSleeptimerText,
-			config.usage.sleep_timer,
-			_("Configure the duration in minutes for the sleeptimer. Select this entry and click OK or green to start/stop the sleeptimer")))
-		self.list.append(getConfigListEntry(_("Inactivity Sleeptimer"),
-			config.usage.inactivity_timer,
-			_("Configure the duration in hours the receiver should go to standby when the receiver is not controlled.")))
-		if int(config.usage.inactivity_timer.value):
-			self.list.append(getConfigListEntry(_("Specify timeframe to ignore inactivity sleeptimer"),
-				config.usage.inactivity_timer_blocktime,
-				_("When enabled you can specify a timeframe were the inactivity sleeptimer is ignored. Not the detection is disabled during this timeframe but the inactivity timeout is disabled")))
-			if config.usage.inactivity_timer_blocktime.value:
-				self.list.append(getConfigListEntry(_("Start time to ignore inactivity sleeptimer"),
-					config.usage.inactivity_timer_blocktime_begin,
-					_("Specify the start time when the inactivity sleeptimer should be ignored")))
-				self.list.append(getConfigListEntry(_("End time to ignore inactivity sleeptimer"),
-					config.usage.inactivity_timer_blocktime_end,
-					_("Specify the end time until the inactivity sleeptimer should be ignored")))
-		self.list.append(getConfigListEntry(_("Shutdown when in Standby"),
-			config.usage.standby_to_shutdown_timer,
-			_("Configure the duration when the receiver should go to shut down in case the receiver is in standby mode.")))
-		if int(config.usage.standby_to_shutdown_timer.value):
-			self.list.append(getConfigListEntry(_("Specify timeframe to ignore the shutdown in standby"),
-				config.usage.standby_to_shutdown_timer_blocktime,
-				_("When enabled you can specify a timeframe to ignore the shutdown timer when the receiver is in standby mode")))
-			if config.usage.standby_to_shutdown_timer_blocktime.value:
-				self.list.append(getConfigListEntry(_("Start time to ignore shutdown in standby"),
-					config.usage.standby_to_shutdown_timer_blocktime_begin,
-					_("Specify the start time to ignore the shutdown timer when the receiver is in standby mode")))
-				self.list.append(getConfigListEntry(_("End time to ignore shutdown in standby"),
-					config.usage.standby_to_shutdown_timer_blocktime_end,
-					_("Specify the end time to ignore the shutdown timer when the receiver is in standby mode")))
-		self["config"].list = self.list
-		self["config"].l.setList(self.list)
+			self["current_status"].setText(_("Timer status:") + " " + _("Disabled"))
+		
+		if self.is_active:
+			self.time = self.session.nav.SleepTimer.getCurrentSleepTime()
+		else:
+			self.time = config.SleepTimer.defaulttime.value
+		self["input"] = Input(text = str(self.time), maxSize = False, type = Input.NUMBER)
+		
+		self.status = True
+		self.updateColors()
+		
+		self["pretext"] = Label(_("Shutdown STB after"))
+		self["aftertext"] = Label(_("minutes"))
+		
+		self["actions"] = NumberActionMap(["SleepTimerEditorActions", "TextEntryActions", "KeyboardInputActions"], 
+		{
+			"exit": self.cancel,
+			"select": self.select,
+			"1": self.keyNumberGlobal,
+			"2": self.keyNumberGlobal,
+			"3": self.keyNumberGlobal,
+			"4": self.keyNumberGlobal,
+			"5": self.keyNumberGlobal,
+			"6": self.keyNumberGlobal,
+			"7": self.keyNumberGlobal,
+			"8": self.keyNumberGlobal,
+			"9": self.keyNumberGlobal,
+			"0": self.keyNumberGlobal,
+			"selectLeft": self.selectLeft,
+			"selectRight": self.selectRight,
+			"left": self.selectLeft,
+			"right": self.selectRight,
+			"home": self.selectHome,
+			"end": self.selectEnd,
+			"deleteForward": self.deleteForward,
+			"deleteBackward": self.deleteBackward,
+			"disableTimer": self.disableTimer,
+			"toggleAction": self.toggleAction,
+			"toggleAsk": self.toggleAsk,
+			"useServiceTime": self.useServiceTime
+		}, -1)
 
-	def ok(self):
-		if self["config"].isChanged():
-			for x in self["config"].list:
-				x[1].save()
-		if self.getCurrentEntry().startswith(_("Sleeptimer")):
-			sleepTimer = config.usage.sleep_timer.value
-			if sleepTimer == "event_standby":
-				sleepTimer = self.currentEventTime()
+	def updateColors(self):
+		if self.status:
+			self["red_text"].setText(_("Action:") + " " + _("Enable timer"))
+		else:
+			self["red_text"].setText(_("Action:") + " " + _("Disable timer"))
+		
+		if config.SleepTimer.action.value == "shutdown":
+			if SystemInfo["DeepstandbySupport"]:
+				shutdownString = _("Deep Standby")
 			else:
-				sleepTimer = int(sleepTimer)
-			if sleepTimer or not self.getCurrentEntry().endswith(_("(not activated)")):
-				InfoBar.instance.setSleepTimer(sleepTimer)
-			self.close(True)
+				shutdownString = _("Shutdown")
+			self["green_text"].setText(_("Sleep timer action:") + " " + shutdownString)
+		elif config.SleepTimer.action.value == "standby":
+			self["green_text"].setText(_("Sleep timer action:") + " " + _("Standby"))
+		
+		if config.SleepTimer.ask.value:
+			self["yellow_text"].setText(_("Ask before shutdown:") + " " + _("yes"))
+		else:
+			self["yellow_text"].setText(_("Ask before shutdown:") + " " + _("no"))
+		self["blue_text"].setText(_("Use time of currently running service"))
+
+	def cancel(self):
+		config.SleepTimer.ask.cancel()
+		config.SleepTimer.action.cancel()
 		self.close()
 
-	def cancel(self, answer = None):
-		if answer is None:
-			if self["config"].isChanged():
-				self.session.openWithCallback(self.cancel, MessageBox, _("Really close without saving settings?"))
-			else:
-				self.close()
-		elif answer:
-			for x in self["config"].list:
-				x[1].cancel()
-			self.close()
+	def select(self):
+		if self.status:
+			if self["input"].getText()=='':
+				self.session.nav.SleepTimer.clear()
+				self.session.openWithCallback(self.close, MessageBox, _("The sleep timer is invalid."), MessageBox.TYPE_INFO)
+			else:				
+				time = int(self["input"].getText())
+				config.SleepTimer.defaulttime.setValue(time)
+				config.SleepTimer.defaulttime.save()
+				config.SleepTimer.action.save()
+				config.SleepTimer.ask.save()
+				self.session.nav.SleepTimer.setSleepTime(time)
+				self.session.openWithCallback(self.close, MessageBox, _("The sleep timer has been activated."), MessageBox.TYPE_INFO)
+		else:
+			self.session.nav.SleepTimer.clear()
+			self.session.openWithCallback(self.close, MessageBox, _("The sleep timer has been disabled."), MessageBox.TYPE_INFO)
 
-	def keyLeft(self):
-		ConfigListScreen.keyLeft(self)
-		self.createSetup()
+	def keyNumberGlobal(self, number):
+		if self["input"].getText() == '' :
+			inputtime=0
+		else:
+			inputtime= int(self["input"].getText())*10 +number
+		if inputtime < 10000 :
+			self["input"].number(number)
 
-	def keyRight(self):
-		ConfigListScreen.keyRight(self)
-		self.createSetup()
+	def selectLeft(self):
+		self["input"].left()
 
-	def currentEventTime(self):
-		remaining = 0
-		ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
+	def selectRight(self):
+		self["input"].right()
+
+	def selectHome(self):
+		self["input"].home()
+
+	def selectEnd(self):
+		self["input"].end()
+
+	def deleteForward(self):
+		self["input"].delete()
+
+	def deleteBackward(self):
+		self["input"].deleteBackward()
+
+	def disableTimer(self):
+		self.status = not self.status
+		self.updateColors()
+
+	def toggleAction(self):
+		if config.SleepTimer.action.value == "shutdown":
+			config.SleepTimer.action.value = "standby"
+		elif config.SleepTimer.action.value == "standby":
+			config.SleepTimer.action.value = "shutdown"
+		self.updateColors()
+
+	def toggleAsk(self):
+		config.SleepTimer.ask.value = not config.SleepTimer.ask.value
+		self.updateColors()
+		
+	def useServiceTime(self):
+		remaining = None
+		ref = self.session.nav.getCurrentlyPlayingServiceReference()
 		if ref:
 			path = ref.getPath()
 			if path: # Movie
@@ -134,4 +179,6 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 					duration = event.getDuration()
 					end = start + duration
 					remaining = end - now
-		return remaining + config.recording.margin_after.value * 60
+		if remaining:
+			config.SleepTimer.defaulttime.value = (remaining / 60) + 2
+			self["input"].setText(str((remaining / 60) + 2))

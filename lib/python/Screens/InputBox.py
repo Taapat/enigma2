@@ -5,7 +5,6 @@ from Components.ActionMap import NumberActionMap
 from Components.Label import Label
 from Components.Input import Input
 from Tools.BoundFunction import boundFunction
-from Tools.Notifications import AddPopup
 from time import time
 
 class InputBox(Screen):
@@ -18,7 +17,7 @@ class InputBox(Screen):
 		if useableChars is not None:
 			self["input"].setUseableChars(useableChars)
 
-		self["actions"] = NumberActionMap(["WizardActions", "InputBoxActions", "InputAsciiActions", "KeyboardInputActions"],
+		self["actions"] = NumberActionMap(["WizardActions", "InputBoxActions", "InputAsciiActions", "KeyboardInputActions"], 
 		{
 			"gotAsciiCode": self.gotAsciiCode,
 			"ok": self.go,
@@ -85,28 +84,22 @@ class InputBox(Screen):
 		self["input"].toggleOverwrite()
 
 class PinInput(InputBox):
-	def __init__(self, session, service = "", triesEntry = None, pinList = [], popup = False, simple=True, *args, **kwargs):
-		InputBox.__init__(self, session = session, text = "    ", maxSize = True, type = Input.PIN, *args, **kwargs)
-
+	def __init__(self, session, service = "", triesEntry = None, pinList = [], *args, **kwargs):
+		InputBox.__init__(self, session = session, text="    ", maxSize=True, type=Input.PIN, *args, **kwargs)
+		
 		self.waitTime = 15
+		
 		self.triesEntry = triesEntry
+		
 		self.pinList = pinList
 		self["service"] = Label(service)
-
-		if service and simple:
-			self.skinName = "PinInputPopup"
-
+		
 		if self.getTries() == 0:
 			if (self.triesEntry.time.value + (self.waitTime * 60)) > time():
 				remaining = (self.triesEntry.time.value + (self.waitTime * 60)) - time()
 				remainingMinutes = int(remaining / 60)
 				remainingSeconds = int(remaining % 60)
-				messageText = _("You have to wait %s!") % (str(remainingMinutes) + " " + _("minutes") + ", " + str(remainingSeconds) + " " + _("seconds"))
-				if service and simple:
-					AddPopup(messageText, type = MessageBox.TYPE_ERROR, timeout = 3)
-					self.closePinCancel()
-				else:
-					self.onFirstExecBegin.append(boundFunction(self.session.openWithCallback, self.closePinCancel, MessageBox, messageText, MessageBox.TYPE_ERROR, timeout = 3))
+				self.onFirstExecBegin.append(boundFunction(self.session.openWithCallback, self.closePinCancel, MessageBox, _("You have to wait %s!") % (str(remainingMinutes) + " " + _("minutes") + ", " + str(remainingSeconds) + " " + _("seconds")), MessageBox.TYPE_ERROR))
 			else:
 				self.setTries(3)
 
@@ -126,58 +119,49 @@ class PinInput(InputBox):
 			self.go()
 		else:
 			InputBox.keyNumberGlobal(self, number)
-
+		
 	def checkPin(self, pin):
-		if pin is not None and " " not in pin and int(pin) in self.pinList:
+		if pin is not None and pin.find(" ") == -1 and int(pin) in self.pinList:
 			return True
 		return False
-
+		
 	def go(self):
-		if self.pinList:
-			self.triesEntry.time.value = int(time())
-			self.triesEntry.time.save()
-			if self.checkPin(self["input"].getText()):
-				self.setTries(3)
-				self.closePinCorrect()
-			else:
-				self.keyHome()
-				self.decTries()
-				if self.getTries() == 0:
-					self.closePinWrong()
+		self.triesEntry.time.value = int(time())
+		self.triesEntry.time.save()
+		if self.checkPin(self["input"].getText()):
+			self.setTries(3)
+			self.closePinCorrect()
 		else:
-			pin = self["input"].getText()
-			if pin and pin.isdigit():
-				self.close(int(pin))
+			self.keyHome()
+			self.decTries()
+			if self.getTries() == 0:
+				self.closePinWrong()
 			else:
-				self.close(None)
-
+				pass
+	
 	def closePinWrong(self, *args):
 		print "args:", args
 		self.close(False)
-
+		
 	def closePinCorrect(self, *args):
-		self.setTries(3)
 		self.close(True)
-
+		
 	def closePinCancel(self, *args):
 		self.close(None)
-
+			
 	def cancel(self):
 		self.closePinCancel()
-
+		
 	def getTries(self):
-		return self.triesEntry and self.triesEntry.tries.value
+		return self.triesEntry.tries.value
 
 	def decTries(self):
 		self.setTries(self.triesEntry.tries.value - 1)
 		self.showTries()
-
+		
 	def setTries(self, tries):
 		self.triesEntry.tries.value = tries
 		self.triesEntry.tries.save()
-
+				
 	def showTries(self):
-		self["tries"].setText(self.triesEntry and _("Tries left:") + " " + str(self.getTries() or ""))
-
-	def keyRight(self):
-		pass
+		self["tries"].setText(_("Tries left:") + " " + str(self.getTries()))

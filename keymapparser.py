@@ -44,7 +44,7 @@ def parseKeys(context, filename, actionmap, device, keys):
 				raise KeymapError("key id '" + str(id) + "' is illegal")
 #				print context + "::" + mapto + " -> " + device + "." + hex(keyid)
 		actionmap.bindKey(filename, device, keyid, flags, context, mapto)
-		addKeyBinding(filename, keyid, context, mapto, flags)
+		addKeyBinding(filename, keyid, context, mapto, flags, device)
 
 def readKeymap(filename):
 	p = enigma.eActionMap.getInstance()
@@ -63,10 +63,10 @@ def readKeymap(filename):
 		context = cmap.attrib.get("context")
 		assert context, "map must have context"
 
-		parseKeys(context, filename, p, "generic", cmap)
-
 		for device in cmap.findall("device"):
 			parseKeys(context, filename, p, device.attrib.get("name"), device)
+
+		parseKeys(context, filename, p, "generic", cmap)
 
 def removeKeymap(filename):
 	p = enigma.eActionMap.getInstance()

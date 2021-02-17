@@ -6,8 +6,6 @@ class RemainingToText(Converter, object):
 	WITH_SECONDS = 1
 	NO_SECONDS = 2
 	IN_SECONDS = 3
-	PROGRESS = 4
-	WITH_SECONDSPROGRESS = 5
 
 	def __init__(self, type):
 		Converter.__init__(self, type)
@@ -16,48 +14,39 @@ class RemainingToText(Converter, object):
 		elif type == "NoSeconds":
 			self.type = self.NO_SECONDS
 		elif type == "InSeconds":
-			self.type = self.IN_SECONDS
-		elif type == "Progress":
-			self.type = self.PROGRESS
-		elif type == "WithSecondsProgress":
-			self.type = self.WITH_SECONDSPROGRESS
+			self.type = self.IN_SECONDS	
 		else:
 			self.type = self.DEFAULT
 
 	@cached
 	def getText(self):
 		time = self.source.time
-		if time:
-			(duration, remaining) = self.source.time
-			if duration and remaining:
-				prefix = ""
-				tsecs = remaining
-				if self.type == self.PROGRESS or self.type == self.WITH_SECONDSPROGRESS:
-					tsecs = duration - tsecs
-				if tsecs < 0:
-					tsecs = -tsecs
-					prefix = "-"
-				elif self.type == self.NO_SECONDS:
-					tsecs += 59
-				if tsecs > duration:
-					tsecs = duration
+		if time is None:
+			return ""
 
-				seconds = tsecs % 60
-				minutes = tsecs / 60 % 60
-				hours = tsecs / 3600
+		(duration, remaining) = self.source.time
 
-				if self.type == self.WITH_SECONDS or self.type == self.WITH_SECONDSPROGRESS:
-					return "%s%d:%02d:%02d" % (prefix, hours, minutes, seconds)
-				elif self.type == self.NO_SECONDS or self.type == self.PROGRESS:
-					return "%s%d:%02d" % (prefix, hours, minutes)
-				elif self.type == self.IN_SECONDS:
-					return prefix+str(tsecs)
-				elif self.type == self.DEFAULT:
-					if remaining <= duration:
-						prefix = "+"
-					return _("%s%d min") % (prefix, tsecs / 60)
-				else:
-					return "???"
-		return ""
+		if self.type == self.WITH_SECONDS:
+			if remaining is not None:
+				return "%d:%02d:%02d" % (remaining / 3600, (remaining / 60) - ((remaining / 3600) * 60), remaining % 60)
+			else:
+				return "%02d:%02d:%02d" % (duration / 3600, (duration / 60) - ((duration / 3600) * 60), duration % 60)
+		elif self.type == self.NO_SECONDS:
+			if remaining is not None:
+				return "+%d:%02d" % (remaining / 3600, (remaining / 60) - ((remaining / 3600) * 60))
+			else:
+				return "%02d:%02d" % (duration / 3600, (duration / 60) - ((duration / 3600) * 60))
+		elif self.type == self.IN_SECONDS:
+			if remaining is not None:
+				return str(remaining)
+			else:
+				return str(duration)
+		elif self.type == self.DEFAULT:
+			if remaining is not None:
+				return "+%d min" % (remaining / 60)
+			else:
+				return "%d min" % (duration / 60)
+		else:
+			return "???"
 
 	text = property(getText)
