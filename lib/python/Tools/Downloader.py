@@ -5,7 +5,7 @@ from urlparse import urlparse
 
 class HTTPProgressDownloader(client.HTTPDownloader):
 	def __init__(self, url, outfile, headers=None):
-		client.HTTPDownloader.__init__(self, url, outfile, headers=headers, agent="STB HTTP Downloader")
+		client.HTTPDownloader.__init__(self, url, outfile, headers=headers, agent="Dreambox HTTP Downloader")
 		self.status = None
 		self.progress_callback = None
 		self.deferred = defer.Deferred()
@@ -43,7 +43,13 @@ class downloadWithProgress:
 		host = parsed.hostname
 		port = parsed.port or (443 if scheme == 'https' else 80)
 		self.factory = HTTPProgressDownloader(url, outputfile, *args, **kwargs)
-		self.connection = reactor.connectTCP(host, port, self.factory)
+		if scheme == 'https':
+			from twisted.internet import ssl
+			if contextFactory is None:
+				contextFactory = ssl.ClientContextFactory()
+			self.connection = reactor.connectSSL(host, port, self.factory, contextFactory)
+		else:
+			self.connection = reactor.connectTCP(host, port, self.factory)
 
 	def start(self):
 		return self.factory.deferred

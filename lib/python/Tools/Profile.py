@@ -2,7 +2,7 @@
 import time
 from Directories import resolveFilename, SCOPE_CONFIG
 
-PERCENTAGE_START = 0
+PERCENTAGE_START = 50
 PERCENTAGE_END = 100
 
 profile_start = time.time()
@@ -31,14 +31,11 @@ except IOError:
 def profile(id):
 	now = time.time() - profile_start
 	if profile_file:
-		profile_file.write("%7.3f\t%s\n" % (now, id))
+		profile_file.write("%.2f\t%s\n" % (now, id))
 
 		if id in profile_data:
 			t = profile_data[id]
-			if total_time:
-				perc = t * (PERCENTAGE_END - PERCENTAGE_START) / total_time + PERCENTAGE_START
-			else:
-				perc = PERCENTAGE_START
+			perc = t * (PERCENTAGE_END - PERCENTAGE_START) / total_time + PERCENTAGE_START
 			try:
 				open("/proc/progress", "w").write("%d \n" % perc)
 			except IOError:

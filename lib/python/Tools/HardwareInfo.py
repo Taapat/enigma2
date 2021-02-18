@@ -33,10 +33,10 @@ class HardwareInfo:
 			except:
 				pass
 
-		HardwareInfo.vu_device_name = "ultimo4k"
-		#vumodel_path = "/proc/stb/info/vumodel"
-		#if os.access(vumodel_path, os.F_OK):
-			#HardwareInfo.vu_device_name = open(vumodel_path, "r").read().strip()
+		HardwareInfo.vu_device_name = "unknown"
+		vumodel_path = "/proc/stb/info/vumodel"
+		if os.access(vumodel_path, os.F_OK):
+			HardwareInfo.vu_device_name = open(vumodel_path, "r").read().strip()
 
 	def get_device_name(self):
 		return HardwareInfo.device_name

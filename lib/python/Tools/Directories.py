@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
-from os import mkdir, rmdir, system, walk, stat as os_stat, listdir, readlink, makedirs, error as os_error, symlink, access, F_OK, R_OK, W_OK, rename as os_rename
+
+from os import path as os_path, mkdir, rmdir, system, walk, stat as os_stat, listdir, readlink, makedirs, error as os_error, symlink, access, F_OK, R_OK, W_OK
 from stat import S_IMODE
 from re import compile
 from enigma import eEnv
@@ -17,6 +17,8 @@ try:
 except:
 	have_utime = False
 
+import os
+
 SCOPE_TRANSPONDERDATA = 0
 SCOPE_SYSETC = 1
 SCOPE_FONTS = 2
@@ -30,6 +32,9 @@ SCOPE_PLUGINS = 9
 SCOPE_MEDIA = 10
 SCOPE_PLAYLIST = 11
 SCOPE_CURRENT_SKIN = 12
+SCOPE_DEFAULTDIR = 13
+SCOPE_DEFAULTPARTITION = 14
+SCOPE_DEFAULTPARTITIONMOUNTDIR = 15
 SCOPE_METADIR = 16
 SCOPE_CURRENT_PLUGIN = 17
 
@@ -50,9 +55,12 @@ defaultPaths = {
 		SCOPE_HDD: ("/hdd/movie/", PATH_DONTCREATE),
 		SCOPE_MEDIA: ("/media/", PATH_DONTCREATE),
 		SCOPE_PLAYLIST: (eEnv.resolve("${sysconfdir}/enigma2/playlist/"), PATH_CREATE),
-
+		
 		SCOPE_USERETC: ("", PATH_DONTCREATE), # user home directory
-
+		
+		SCOPE_DEFAULTDIR: (eEnv.resolve("${datadir}/enigma2/defaults/"), PATH_CREATE),
+		SCOPE_DEFAULTPARTITION: ("/dev/mtdblock6", PATH_DONTCREATE),
+		SCOPE_DEFAULTPARTITIONMOUNTDIR: (eEnv.resolve("${datadir}/enigma2/dealer"), PATH_CREATE),
 		SCOPE_METADIR: (eEnv.resolve("${datadir}/meta"), PATH_CREATE),
 	}
 
@@ -67,33 +75,28 @@ fallbackPaths = {
 	}
 
 def resolveFilename(scope, base = "", path_prefix = None):
-	if base.startswith("~/"):
+	if base[0:2] == "~/":
 		# you can only use the ~/ if we have a prefix directory
 		assert path_prefix is not None
-		base = os.path.join(path_prefix, base[2:])
+		base = os_path.join(path_prefix, base[2:])
 
 	# don't resolve absolute paths
-	if base.startswith('/'):
+	if base[0:1] == '/':
 		return base
 
 	if scope == SCOPE_CURRENT_SKIN:
 		from Components.config import config
-		# allow files in the config directory to replace skin files
-		tmp = defaultPaths[SCOPE_CONFIG][0]
-		if base and pathExists(tmp + base):
-			path = tmp
-		else:
-			tmp = defaultPaths[SCOPE_SKIN][0]
-			pos = config.skin.primary_skin.value.rfind('/')
-			if pos != -1:
-				#if basefile is not available use default skin path as fallback
-				tmpfile = tmp+config.skin.primary_skin.value[:pos+1] + base
-				if pathExists(tmpfile):
-					path = tmp+config.skin.primary_skin.value[:pos+1]
-				else:
-					path = tmp
+		tmp = defaultPaths[SCOPE_SKIN]
+		pos = config.skin.primary_skin.value.rfind('/')
+		if pos != -1:
+			#if basefile is not available use default skin path as fallback
+			tmpfile = tmp[0]+config.skin.primary_skin.value[:pos+1] + base
+			if fileExists(tmpfile):
+				path = tmp[0]+config.skin.primary_skin.value[:pos+1]
 			else:
-				path = tmp
+				path = tmp[0]
+		else:
+			path = tmp[0]
 
 	elif scope == SCOPE_CURRENT_PLUGIN:
 		tmp = defaultPaths[SCOPE_PLUGINS]
@@ -127,30 +130,24 @@ def resolveFilename(scope, base = "", path_prefix = None):
 
 	if fallbackPath and not fileExists(path + base):
 		for x in fallbackPath:
-			try:
-				if x[1] == FILE_COPY:
-					if fileExists(x[0] + base):
-						try:
-							os.link(x[0] + base, path + base)
-						except:
-							system("cp " + x[0] + base + " " + path + base)
-						break
-				elif x[1] == FILE_MOVE:
-					if fileExists(x[0] + base):
-						os.rename(x[0] + base, path + base)
-						break
-				elif x[1] == PATH_COPY:
-					if pathExists(x[0]):
-						if not pathExists(defaultPaths[scope][0]):
-							mkdir(path)
-						system("cp -a " + x[0] + "* " + path)
-						break
-				elif x[1] == PATH_MOVE:
-					if pathExists(x[0]):
-						os.rename(x[0], path + base)
-						break
-			except Exception, e:
-				print "[D] Failed to recover %s:" % (path+base), e
+			if x[1] == FILE_COPY:
+				if fileExists(x[0] + base):
+					system("cp " + x[0] + base + " " + path + base)
+					break
+			elif x[1] == FILE_MOVE:
+				if fileExists(x[0] + base):
+					system("mv " + x[0] + base + " " + path + base)
+					break
+			elif x[1] == PATH_COPY:
+				if pathExists(x[0]):
+					if not pathExists(defaultPaths[scope][0]):
+						mkdir(path)
+					system("cp -a " + x[0] + "* " + path)
+					break
+			elif x[1] == PATH_MOVE:
+				if pathExists(x[0]):
+					system("mv " + x[0] + " " + path)
+					break
 
 	# FIXME: we also have to handle DATADIR etc. here.
 	return path + base
@@ -159,33 +156,52 @@ def resolveFilename(scope, base = "", path_prefix = None):
 pathExists = os.path.exists
 isMount = os.path.ismount
 
+def bestRecordingLocation(candidates):
+	path = ''
+
+	from Components import Harddisk
+	ata_devices = [candidate for candidate in candidates if Harddisk.getDeviceInterface(candidate[1]) == "ata"]
+
+	if len(ata_devices) == 1:
+		path = ata_devices[0][1]
+
+	elif len(ata_devices):
+		best = ""
+		for device in ata_devices:
+			dev = os.path.basename(device[0])
+			if not best or (best > dev):
+				best = dev
+				path = device[1]
+	else: # Find the largest usb disk
+		biggest = 0
+		for candidate in candidates:
+			try:
+				stat = os.statvfs(candidate[1])
+				# must have some free space (i.e. not read-only)
+				if stat.f_bavail:
+					# Free space counts double
+					size = (stat.f_blocks + stat.f_bavail) * stat.f_bsize
+					if size > biggest:
+						path = candidate[1]
+						biggest = size
+			except Exception, e:
+				print "[DRL]", e
+
+	return path
+
 def defaultRecordingLocation(candidate=None):
 	if candidate and os.path.exists(candidate):
 		return candidate
 	# First, try whatever /hdd points to, or /media/hdd
 	try:
-		path = os.readlink('/hdd')
+		path = os.path.realpath('/hdd')
 	except:
 		path = '/media/hdd'
-	if not os.path.exists(path):
+	if not os.path.exists(path) or not os.path.ismount(path):
 		path = ''
-		# Find the largest local disk
 		from Components import Harddisk
 		mounts = [m for m in Harddisk.getProcMounts() if m[1].startswith('/media/')]
-		biggest = 0
-		havelocal = False
-		for candidate in mounts:
-			try:
-				islocal = candidate[1].startswith('/dev/') # Good enough
-				stat = os.statvfs(candidate[1])
-				# Free space counts double
-				size = (stat.f_blocks + stat.f_bavail) * stat.f_bsize
-				if (islocal and not havelocal) or ((islocal or not havelocal) and (size > biggest)):
-					path = candidate[1]
-					havelocal = islocal
-					biggest = size
-			except Exception, e:
-				print "[DRL]", e
+		path = bestRecordingLocation([m for m in mounts if m[0].startswith('/dev/')])
 	if path:
 		# If there's a movie subdir, we'd probably want to use that.
 		movie = os.path.join(path, 'movie')
@@ -193,8 +209,8 @@ def defaultRecordingLocation(candidate=None):
 			path = movie
 		if not path.endswith('/'):
 			path += '/' # Bad habits die hard, old code relies on this
-	return path
 
+	return path
 
 def createDir(path, makeParents = False):
 	try:
@@ -203,17 +219,19 @@ def createDir(path, makeParents = False):
 		else:
 			mkdir(path)
 	except:
-		return 0
+		ret = 0
 	else:
-		return 1
+		ret = 1
+	return ret
 
 def removeDir(path):
 	try:
 		rmdir(path)
 	except:
-		return 0
+		ret = 0
 	else:
-		return 1
+		ret = 1
+	return ret
 
 def fileExists(f, mode='r'):
 	if mode == 'r':
@@ -228,30 +246,31 @@ def fileCheck(f, mode='r'):
 	return fileExists(f, mode) and f
 
 def getRecordingFilename(basename, dirname = None):
+	if not dirname.endswith('/'):
+		dirname += '/'
+
 	# filter out non-allowed characters
 	non_allowed_characters = "/.\\:*?<>|\""
 	filename = ""
-
+	
 	basename = basename.replace('\xc2\x86', '').replace('\xc2\x87', '')
-
+	
 	for c in basename:
 		if c in non_allowed_characters or ord(c) < 32:
 			c = "_"
 		filename += c
 
-	# max filename length for ext4 is 255 (minus 8 characters for .ts.meta)
-	filename = filename[:247]
-
 	if dirname is not None:
-		if not dirname.startswith('/'):
-			dirname = os.path.join(defaultRecordingLocation(), dirname)
-	else:
-		dirname = defaultRecordingLocation()
-	filename = os.path.join(dirname, filename)
+		filename = ''.join((dirname, filename))
+
+	while len(filename) > 240:
+		filename = filename.decode('UTF-8')
+		filename = filename[:-1]
+		filename = filename.encode('UTF-8')
 
 	i = 0
 	while True:
-		path = filename
+		path = resolveFilename(SCOPE_HDD, filename)
 		if i > 0:
 			path += "_%03d" % i
 		try:
@@ -282,8 +301,8 @@ def crawlDirectory(directory, pattern):
 def copyfile(src, dst):
 	try:
 		f1 = open(src, "rb")
-		if os.path.isdir(dst):
-			dst = os.path.join(dst, os.path.basename(src))
+		if os_path.isdir(dst):
+			dst = os_path.join(dst, os_path.basename(src))
 		f2 = open(dst, "w+b")
 		while True:
 			buf = f1.read(16*1024)
@@ -303,20 +322,20 @@ def copyfile(src, dst):
 
 def copytree(src, dst, symlinks=False):
 	names = listdir(src)
-	if os.path.isdir(dst):
-		dst = os.path.join(dst, os.path.basename(src))
-		if not os.path.isdir(dst):
+	if os_path.isdir(dst):
+		dst = os_path.join(dst, os_path.basename(src))
+		if not os_path.isdir(dst):
 			mkdir(dst)
 	else:
 		makedirs(dst)
 	for name in names:
-		srcname = os.path.join(src, name)
-		dstname = os.path.join(dst, name)
+		srcname = os_path.join(src, name)
+		dstname = os_path.join(dst, name)
 		try:
-			if symlinks and os.path.islink(srcname):
+			if symlinks and os_path.islink(srcname):
 				linkto = readlink(srcname)
 				symlink(linkto, dstname)
-			elif os.path.isdir(srcname):
+			elif os_path.isdir(srcname):
 				copytree(srcname, dstname, symlinks)
 			else:
 				copyfile(srcname, dstname)
@@ -332,39 +351,13 @@ def copytree(src, dst, symlinks=False):
 	except:
 		print "copy stats for", src, "failed!"
 
-# Renames files or if source and destination are on different devices moves them in background
-# input list of (source, destination)
-def moveFiles(fileList):
-	movedList = []
-	try:
-		try:
-			for item in fileList:
-				os_rename(item[0], item[1])
-				movedList.append(item)
-		except OSError, e:
-			if e.errno == 18:
-				print "[Directories] cannot rename across devices, trying slow move"
-				import Screens.CopyFiles
-				Screens.CopyFiles.moveFiles(fileList, item[0])
-				print "[Directories] Moving in background..."
-			else:
-				raise
-	except Exception, e:
-		print "[Directories] Failed move:", e
-		for item in movedList:
-			try:
-				os_rename(item[1], item[0])
-			except:
-				print "[Directories] Failed to undo move:", item
-				raise
-
 def getSize(path, pattern=".*"):
 	path_size = 0
-	if os.path.isdir(path):
+	if os_path.isdir(path):
 		files = crawlDirectory(path, pattern)
 		for file in files:
-			filepath = os.path.join(file[0], file[1])
-			path_size += os.path.getsize(filepath)
-	elif os.path.isfile(path):
-		path_size = os.path.getsize(path)
+			filepath = os_path.join(file[0], file[1])
+			path_size += os_path.getsize(filepath)
+	elif os_path.isfile(path):
+		path_size = os_path.getsize(path)
 	return path_size
