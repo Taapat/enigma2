@@ -9,9 +9,9 @@ class Keyboard:
 		self.readKeyboardMapFiles()
 
 	def readKeyboardMapFiles(self):
-		for keymapfile in os_listdir(eEnv.resolve('${datadir}/keymaps/')):
+		for keymapfile in os_listdir(eEnv.resolve('${datadir}/')):
 			if (keymapfile.endswith(".info")):
-				f = open(eEnv.resolve('${datadir}/keymaps/') + keymapfile)
+				f = open(eEnv.resolve('${datadir}/') + keymapfile)
 				mapfile = None
 				mapname = None
 				for line in f:
@@ -33,7 +33,7 @@ class Keyboard:
 		try:
 			keymap = self.keyboardmaps[index]
 			print "Activating keymap:",keymap[1]
-			keymappath = eEnv.resolve('${datadir}/keymaps/') + keymap[0]
+			keymappath = eEnv.resolve('${datadir}/') + keymap[0]
 			if os_path.exists(keymappath):
 				Console().ePopen(("loadkmap < " + str(keymappath)))
 		except:
