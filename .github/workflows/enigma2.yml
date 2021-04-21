@@ -114,6 +114,7 @@ jobs:
         cat enigma2-py.pot enigma2-xml.pot | msguniq --no-wrap --no-location -o po/enigma2.pot -
         rm enigma2-py.pot enigma2-xml.pot
         find ./po -type f -name '*.po' -print -exec msgmerge --backup=none --no-wrap -s -U {} po/enigma2.pot \;
+        sed -i '/POT-Creation-Date/d' po/enigma2.pot
     - name: Compile language files
       if: steps.po.outputs.pot_changed == 'true'
       run: |
