@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: 2020-05-16 18:44+0200\n"
 "Last-Translator: Baldur <bsveinsson@gmail.com>\n"
 "Language-Team: Polar Team/LT Team <baddi@oreind.is>\n"
@@ -11593,11 +11593,6 @@ msgstr "Sýndar lyklaborð"
 #
 #, fuzzy
 msgid "Virtual keyboard"
-msgstr "Sýndar lyklaborð"
-
-#
-#, fuzzy
-msgid "Virtual keyboard1"
 msgstr "Sýndar lyklaborð"
 
 #

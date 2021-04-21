@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: 2013-10-23 19:15+0100\n"
 "Last-Translator: andy1 <dmmm8000pvr@gmail.com>\n"
 "Language-Team: none\n"
@@ -11227,10 +11227,6 @@ msgid "Virtual KeyBoard Text:"
 msgstr "Virtuelt tastatur"
 
 msgid "Virtual keyboard"
-msgstr "Virtuelt tastatur"
-
-#, fuzzy
-msgid "Virtual keyboard1"
 msgstr "Virtuelt tastatur"
 
 #

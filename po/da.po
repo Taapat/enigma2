@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: 2017-01-18 16:38+0100\n"
 "Last-Translator: lupine <a_ecklon@hotmail.com>\n"
 "Language-Team: \n"
@@ -11671,11 +11671,6 @@ msgstr "Virtuelt tastatur"
 
 #
 msgid "Virtual keyboard"
-msgstr "Virtuelt tastatur"
-
-#
-#, fuzzy
-msgid "Virtual keyboard1"
 msgstr "Virtuelt tastatur"
 
 #

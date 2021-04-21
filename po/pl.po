@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: 2020-12-02 19:26+0100\n"
 "Last-Translator: blzr <blzr@o2.pl>\n"
 "Language-Team: \n"
@@ -10137,10 +10137,6 @@ msgid "Virtual KeyBoard Text:"
 msgstr "Tekst wirtualnej klawiatury:"
 
 msgid "Virtual keyboard"
-msgstr "Wirtualna klawiatura"
-
-#, fuzzy
-msgid "Virtual keyboard1"
 msgstr "Wirtualna klawiatura"
 
 msgid "Voltage mode"

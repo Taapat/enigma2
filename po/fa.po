@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: 2018-02-14 16:51+0330\n"
 "Last-Translator: Persian Prince <persianprince@pe4k.com>\n"
 "Language-Team: Persian Professionals <persianpros@yahoo.com>\n"
@@ -10421,9 +10421,6 @@ msgid "Virtual KeyBoard Text:"
 msgstr ""
 
 msgid "Virtual keyboard"
-msgstr ""
-
-msgid "Virtual keyboard1"
 msgstr ""
 
 msgid "Voltage mode"

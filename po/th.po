@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tuxbox-enigma 0.0.1-En-Th\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: 2010-04-08 18:13+0700\n"
 "Last-Translator: Tony - Thaidreambox\n"
 "Language-Team: Tony @ Thai Dreambox <tonyboyth@gmail.com>\n"
@@ -10534,10 +10534,6 @@ msgstr "แป้นพิมพ์จำลอง"
 
 #, fuzzy
 msgid "Virtual keyboard"
-msgstr "แป้นพิมพ์จำลอง"
-
-#, fuzzy
-msgid "Virtual keyboard1"
 msgstr "แป้นพิมพ์จำลอง"
 
 msgid "Voltage mode"

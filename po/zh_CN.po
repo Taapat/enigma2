@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: OpenPLI Enigma2 Official Greek Translation\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-21 17:26+0000\n"
+"POT-Creation-Date: 2021-04-21 20:56+0300\n"
 "PO-Revision-Date: \n"
 "Last-Translator: 344784320@qq.com\n"
 "Language-Team: Openpli Team\n"
@@ -10122,10 +10122,6 @@ msgid "Virtual KeyBoard Text:"
 msgstr "虚拟键盘文本："
 
 msgid "Virtual keyboard"
-msgstr "虚拟键盘"
-
-#, fuzzy
-msgid "Virtual keyboard1"
 msgstr "虚拟键盘"
 
 msgid "Voltage mode"
