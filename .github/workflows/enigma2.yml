@@ -82,8 +82,7 @@ jobs:
         python -m compileall .
         echo done!
   update-po:
-    needs: build
-    if: needs.build.result == 'success' && github.event_name == 'push'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
