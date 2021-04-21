@@ -10134,7 +10134,6 @@ msgstr "Virtuālās tastatūras teksts:"
 msgid "Virtual keyboard"
 msgstr "Virtuālā tastatūra"
 
-#, fuzzy
 msgid "Virtual keyboard1"
 msgstr "Virtuālā tastatūra"
 
