@@ -114,7 +114,9 @@ jobs:
         for i in $(ls -1 ./po/*.po); do $(msgfmt "$i" -o "$i".mo); done
         rm ./po/*.mo
     - name: Commit and push translation updates
+      if: steps.po.outputs.po_changed == 'true'
       uses: actions-js/push@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         message: 'Update language files'
+        branch: 'translations'
