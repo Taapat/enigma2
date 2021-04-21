@@ -105,22 +105,22 @@ jobs:
         cat enigma2-py.pot enigma2-xml.pot | msguniq --no-wrap --no-location -o po/enigma2.pot -
         sed -i '/POT-Creation-Date/d' po/enigma2.pot
         if git status -s | grep 'M'; then
-          echo '::set-output name=po_changed::true'
+          echo '::set-output name=pot_changed::true'
         fi
     - name: Update language files
-      if: steps.po.outputs.po_changed == 'true'
+      if: steps.po.outputs.pot_changed == 'true'
       run: |
         rm po/enigma2.pot
         cat enigma2-py.pot enigma2-xml.pot | msguniq --no-wrap --no-location -o po/enigma2.pot -
         rm enigma2-py.pot enigma2-xml.pot
         find ./po -type f -name '*.po' -print -exec msgmerge --backup=none --no-wrap -s -U {} po/enigma2.pot \;
     - name: Compile language files
-      if: steps.po.outputs.po_changed == 'true'
+      if: steps.po.outputs.pot_changed == 'true'
       run: |
         for i in $(ls -1 ./po/*.po); do $(msgfmt "$i" -o "$i".mo); done
         rm ./po/*.mo
     - name: Commit and push translation updates
-      if: steps.po.outputs.po_changed == 'true'
+      if: steps.po.outputs.pot_changed == 'true'
       uses: actions-js/push@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
