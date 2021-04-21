@@ -52,7 +52,7 @@ class VirtualKeyBoard(Screen, HelpableScreen):
 	def __init__(self, session, title=_("Virtual KeyBoard Text:"), text="", maxSize=False, visible_width=False, type=Input.TEXT, currPos=None, allMarked=False, style=VKB_ENTER_ICON):
 		Screen.__init__(self, session)
 		HelpableScreen.__init__(self)
-		self.setTitle(_("Virtual keyboard"))
+		self.setTitle(_("Virtual keyboard1"))
 		prompt = title  # Title should only be used for screen titles!
 		greenLabel, self.green = {
 			VKB_DONE_ICON: ("Done", u"ENTERICON"),
