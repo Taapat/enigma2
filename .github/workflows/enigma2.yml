@@ -81,3 +81,40 @@ jobs:
         make
         python -m compileall .
         echo done!
+  update-po:
+    needs: build
+    if: needs.build.result == 'success' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+    - name: Check translation phrase changes
+      id: po
+      run: |
+        xgettext --no-wrap --no-location -L Python --from-code=UTF-8 -kpgettext:1c,2 --add-comments="TRANSLATORS:" -d enigma2 -s -o enigma2-py.pot `find . -type f -name '*.py'`
+        sed -i -e 's/CHARSET/UTF-8/g' enigma2-py.pot
+        python po/xml2po.py `find . -type f -name '*.xml' | egrep -v './timers.xml'` > enigma2-xml.pot
+        cat enigma2-py.pot enigma2-xml.pot | msguniq --no-wrap --no-location -o po/enigma2.pot -
+        sed -i '/POT-Creation-Date/d' po/enigma2.pot
+        if git status -s | grep 'M'; then
+          echo '::set-output name=po_changed::true'
+        fi
+    - name: Update language files
+      if: steps.po.outputs.po_changed == 'true'
+      run: |
+        rm po/enigma2.pot
+        cat enigma2-py.pot enigma2-xml.pot | msguniq --no-wrap --no-location -o po/enigma2.pot -
+        rm enigma2-py.pot enigma2-xml.pot
+        find ./po -type f -name '*.po' -print -exec msgmerge --backup=none --no-wrap -s -U {} po/enigma2.pot \;
+    - name: Compile language files
+      if: steps.po.outputs.po_changed == 'true'
+      run: |
+        for i in $(ls -1 ./po/*.po); do $(msgfmt "$i" -o "$i".mo); done
+        rm ./po/*.mo
+    - name: Commit and push translation updates
+      uses: actions-js/push@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        message: 'Update language files'
