@@ -8,6 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2021-04-21 17:14+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -10051,6 +10052,45 @@ msgstr ""
 msgid "VCR scart"
 msgstr ""
 
+msgid "[REC]"
+msgstr ""
+
+msgid "REC"
+msgstr ""
+
+msgid "C"
+msgstr ""
+
+msgid "Rec"
+msgstr ""
+
+msgid "®"
+msgstr ""
+
+msgid "D"
+msgstr ""
+
+msgid "F"
+msgstr ""
+
+msgid "G"
+msgstr ""
+
+msgid "H"
+msgstr ""
+
+msgid "I"
+msgstr ""
+
+msgid "J"
+msgstr ""
+
+msgid "TUNER:"
+msgstr ""
+
+msgid "EtPortal"
+msgstr ""
+
 msgid "0"
 msgstr ""
 
@@ -10087,9 +10127,6 @@ msgstr ""
 msgid "BER"
 msgstr ""
 
-msgid "C"
-msgstr ""
-
 msgid "Channellist menu"
 msgstr ""
 
@@ -10097,9 +10134,6 @@ msgid "Command execution..."
 msgstr ""
 
 msgid "Commit info"
-msgstr ""
-
-msgid "D"
 msgstr ""
 
 msgid "Downloadable plugins"
@@ -11509,62 +11543,6 @@ msgstr ""
 msgid "What type of service scan do you want?"
 msgstr ""
 
-msgid "®"
-msgstr ""
-
-msgid "EtPortal"
-msgstr ""
-
-msgid "F"
-msgstr ""
-
-msgid "G"
-msgstr ""
-
-msgid "H"
-msgstr ""
-
-msgid "I"
-msgstr ""
-
-msgid "J"
-msgstr ""
-
-msgid "TUNER:"
-msgstr ""
-
-msgid "Rec"
-msgstr ""
-
-msgid "REC"
-msgstr ""
-
-msgid "[REC]"
-msgstr ""
-
-msgid "Refresh rate selection."
-msgstr ""
-
-msgid "Select refresh rate"
-msgstr ""
-
-msgid "Select video input with up/down buttons"
-msgstr ""
-
-msgid "Select video mode"
-msgstr ""
-
-msgid ""
-"Video input selection\n"
-"\n"
-"Please press OK if you can see this page on your TV (or select a different input port).\n"
-"\n"
-"The next input port will be automatically probed in 20 seconds."
-msgstr ""
-
-msgid "Video mode selection."
-msgstr ""
-
 msgid "Configure interface"
 msgstr ""
 
@@ -11647,4 +11625,27 @@ msgid ""
 "Have you attached your USB WLAN Stick?\n"
 "\n"
 "Please choose what you want to do next."
+msgstr ""
+
+msgid "Refresh rate selection."
+msgstr ""
+
+msgid "Select refresh rate"
+msgstr ""
+
+msgid "Select video input with up/down buttons"
+msgstr ""
+
+msgid "Select video mode"
+msgstr ""
+
+msgid ""
+"Video input selection\n"
+"\n"
+"Please press OK if you can see this page on your TV (or select a different input port).\n"
+"\n"
+"The next input port will be automatically probed in 20 seconds."
+msgstr ""
+
+msgid "Video mode selection."
 msgstr ""
