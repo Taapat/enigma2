@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2 3.0.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-19 10:48+0430\n"
+"POT-Creation-Date: 2021-04-21 17:26+0000\n"
 "PO-Revision-Date: 2020-11-29 22:07+0200\n"
 "Last-Translator: Мартин Петков <marto74bg@yahoo.co.uk>\n"
 "Language-Team: Bulgarian\n"
@@ -10108,6 +10108,10 @@ msgid "Virtual KeyBoard Text:"
 msgstr "Виртуална клавиатура Текст:"
 
 msgid "Virtual keyboard"
+msgstr "Виртуална клавиатура"
+
+#, fuzzy
+msgid "Virtual keyboard1"
 msgstr "Виртуална клавиатура"
 
 msgid "Voltage mode"

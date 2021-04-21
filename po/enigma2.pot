@@ -8485,7 +8485,7 @@ msgstr ""
 msgid "Virtual KeyBoard Text:"
 msgstr ""
 
-msgid "Virtual keyboard"
+msgid "Virtual keyboard1"
 msgstr ""
 
 msgid "Voltage mode"
@@ -10235,6 +10235,9 @@ msgid "UnhandledKey"
 msgstr ""
 
 msgid "VideoMode"
+msgstr ""
+
+msgid "Virtual keyboard"
 msgstr ""
 
 msgid "Volume"

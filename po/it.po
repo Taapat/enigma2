@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: OpenPLi-enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-19 10:48+0430\n"
+"POT-Creation-Date: 2021-04-21 17:26+0000\n"
 "PO-Revision-Date: 2020-05-16 18:46+0200\n"
 "Last-Translator: Gringo <openpli@tiscali.it>\n"
 "Language-Team: www.linsat.net <spaeleus@croci.org>\n"
@@ -10187,6 +10187,10 @@ msgid "Virtual KeyBoard Text:"
 msgstr "Testo Tastiera virtuale:"
 
 msgid "Virtual keyboard"
+msgstr "Tastiera virtuale"
+
+#, fuzzy
+msgid "Virtual keyboard1"
 msgstr "Tastiera virtuale"
 
 msgid "Voltage mode"

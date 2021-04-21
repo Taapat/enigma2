@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-19 10:48+0430\n"
+"POT-Creation-Date: 2021-04-21 17:26+0000\n"
 "PO-Revision-Date: 2020-11-22 09:44+0100\n"
 "Last-Translator: Frenske <voorzitter@openpli.org>\n"
 "Language-Team: OpenPLi\n"
@@ -10142,6 +10142,10 @@ msgid "Virtual KeyBoard Text:"
 msgstr "Virtueller Keyboard-Text:"
 
 msgid "Virtual keyboard"
+msgstr "Virtuelle Tastatur"
+
+#, fuzzy
+msgid "Virtual keyboard1"
 msgstr "Virtuelle Tastatur"
 
 msgid "Voltage mode"

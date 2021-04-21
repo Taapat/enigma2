@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-19 10:48+0430\n"
+"POT-Creation-Date: 2021-04-21 17:26+0000\n"
 "PO-Revision-Date: 2021-02-25 12:06+0100\n"
 "Last-Translator: Andrej Tobola <andrej.tobola@gmail.com>\n"
 "Language-Team: \n"
@@ -10135,6 +10135,10 @@ msgid "Virtual KeyBoard Text:"
 msgstr "Text virtuálnej klávesnice:"
 
 msgid "Virtual keyboard"
+msgstr "Virtuálna klávesnica"
+
+#, fuzzy
+msgid "Virtual keyboard1"
 msgstr "Virtuálna klávesnica"
 
 msgid "Voltage mode"

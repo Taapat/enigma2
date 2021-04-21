@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: tuxbox-enigma 0.0.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-19 10:48+0430\n"
+"POT-Creation-Date: 2021-04-21 17:26+0000\n"
 "PO-Revision-Date: 2010-03-09 21:03+0100\n"
 "Last-Translator: \n"
 "Language-Team: HDTV ROMANIA(superonic,costel_mbc,neutrin,otheitis,cipy_1982,neutrin,runcanion)\n"
@@ -10488,6 +10488,10 @@ msgstr "Tastatura Virtuala"
 
 #, fuzzy
 msgid "Virtual keyboard"
+msgstr "Tastatura Virtuala"
+
+#, fuzzy
+msgid "Virtual keyboard1"
 msgstr "Tastatura Virtuala"
 
 msgid "Voltage mode"

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-19 10:48+0430\n"
+"POT-Creation-Date: 2021-04-21 17:26+0000\n"
 "PO-Revision-Date: \n"
 "Last-Translator: 王彪 <satfan@163.com>\n"
 "Language-Team: 中國\n"
@@ -10185,6 +10185,9 @@ msgid "Virtual KeyBoard Text:"
 msgstr ""
 
 msgid "Virtual keyboard"
+msgstr ""
+
+msgid "Virtual keyboard1"
 msgstr ""
 
 msgid "Voltage mode"
