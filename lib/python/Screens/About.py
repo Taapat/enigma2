@@ -8,6 +8,7 @@ from Components.NimManager import nimmanager
 from Components.About import about
 from Components.ScrollLabel import ScrollLabel
 from Components.Button import Button
+from Components.SystemInfo import SystemInfo
 
 from Components.Label import Label
 from Components.ProgressBar import ProgressBar
@@ -25,7 +26,7 @@ class About(Screen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
 		self.setTitle(_("About"))
-		hddsplit = parameters.get("AboutHddSplit", 0)
+		hddsplit = parameters.get("AboutHddSplit", 1)
 
 		AboutText = _("Hardware: ") + about.getHardwareTypeString() + "\n"
 		cpu = about.getCPUInfoString()
@@ -90,27 +91,30 @@ class About(Screen):
 				self["Tuner" + str(count)] = StaticText("")
 			AboutText += nims[count] + "\n"
 
-		self["HDDHeader"] = StaticText(_("Detected HDD:"))
-		AboutText += "\n" + _("Detected HDD:") + "\n"
+		self["HDDHeader"] = StaticText(_("Detected storage devices:"))
+		AboutText += "\n" + _("Detected storage devices:") + "\n"
 
 		hddlist = harddiskmanager.HDDList()
 		hddinfo = ""
 		if hddlist:
-			formatstring = hddsplit and "%s:%s, %.1f %sB %s" or "%s\n(%s, %.1f %sB %s)"
+			formatstring = hddsplit and "%s:%s, %.1f %s %s" or "%s\n(%s, %.1f %s %s)"
 			for count in range(len(hddlist)):
 				if hddinfo:
 					hddinfo += "\n"
 				hdd = hddlist[count][1]
 				if int(hdd.free()) > 1024:
-					hddinfo += formatstring % (hdd.model(), hdd.capacity(), hdd.free() / 1024.0, "G", _("free"))
+					hddinfo += formatstring % (hdd.model(), hdd.capacity(), hdd.free() / 1024.0, _("GB"), _("free"))
 				else:
-					hddinfo += formatstring % (hdd.model(), hdd.capacity(), hdd.free(), "M", _("free"))
+					hddinfo += formatstring % (hdd.model(), hdd.capacity(), hdd.free(), _("MB"), _("free"))
 		else:
 			hddinfo = _("none")
 		self["hddA"] = StaticText(hddinfo)
 		AboutText += hddinfo + "\n\n" + _("Network Info:")
 		for x in about.GetIPsFromNetworkInterfaces():
 			AboutText += "\n" + x[0] + ": " + x[1]
+		if SystemInfo["HasHDMI-CEC"] and config.hdmicec.enabled.value:
+			address = config.hdmicec.fixed_physical_address.value if config.hdmicec.fixed_physical_address.value != "0.0.0.0" else _("not set")
+			AboutText += "\n\n" + _("HDMI-CEC address") + ": " + address
 
 		self["AboutScrollLabel"] = ScrollLabel(AboutText)
 		self["key_green"] = Button(_("Translations"))

@@ -10,6 +10,9 @@ from SystemInfo import SystemInfo
 import os
 import time
 
+originalAudioTracks = "orj dos ory org esl qaa und mis mul ORY ORJ Audio_ORJ oth"
+visuallyImpairedCommentary = "NAR qad"
+
 
 def InitUsageConfig():
 	config.usage = ConfigSubsection()
@@ -17,8 +20,9 @@ def InitUsageConfig():
 	config.usage.subnetwork_cable = ConfigYesNo(default=True)
 	config.usage.subnetwork_terrestrial = ConfigYesNo(default=True)
 	config.usage.showdish = ConfigYesNo(default=True)
-	config.misc.showrotorposition = ConfigSelection(default="no", choices=[("no", _("no")), ("yes", _("yes")), ("withtext", _("with text")), ("tunername", _("with tuner name"))])
 	config.usage.multibouquet = ConfigYesNo(default=True)
+
+	showrotorpositionChoicesUpdate()
 
 	config.usage.alternative_number_mode = ConfigYesNo(default=False)
 
@@ -256,43 +260,7 @@ def InitUsageConfig():
 
 	config.usage.show_timer_conflict_warning = ConfigYesNo(default=True)
 
-	dvbs_nims = [("-2", _("Disabled"))]
-	dvbt_nims = [("-2", _("Disabled"))]
-	dvbc_nims = [("-2", _("Disabled"))]
-	atsc_nims = [("-2", _("Disabled"))]
-
-	nims = [("-1", _("auto"))]
-	for x in nimmanager.nim_slots:
-		if x.isCompatible("DVB-S"):
-			dvbs_nims.append((str(x.slot), x.getSlotName()))
-		elif x.isCompatible("DVB-T"):
-			dvbt_nims.append((str(x.slot), x.getSlotName()))
-		elif x.isCompatible("DVB-C"):
-			dvbc_nims.append((str(x.slot), x.getSlotName()))
-		elif x.isCompatible("ATSC"):
-			atsc_nims.append((str(x.slot), x.getSlotName()))
-		nims.append((str(x.slot), x.getSlotName()))
-
-	config.usage.frontend_priority = ConfigSelection(default="-1", choices=list(nims))
-	nims.insert(0, ("-2", _("Disabled")))
-	config.usage.recording_frontend_priority = ConfigSelection(default="-2", choices=nims)
-	config.usage.frontend_priority_dvbs = ConfigSelection(default="-2", choices=list(dvbs_nims))
-	dvbs_nims.insert(1, ("-1", _("auto")))
-	config.usage.recording_frontend_priority_dvbs = ConfigSelection(default="-2", choices=dvbs_nims)
-	config.usage.frontend_priority_dvbt = ConfigSelection(default="-2", choices=list(dvbt_nims))
-	dvbt_nims.insert(1, ("-1", _("auto")))
-	config.usage.recording_frontend_priority_dvbt = ConfigSelection(default="-2", choices=dvbt_nims)
-	config.usage.frontend_priority_dvbc = ConfigSelection(default="-2", choices=list(dvbc_nims))
-	dvbc_nims.insert(1, ("-1", _("auto")))
-	config.usage.recording_frontend_priority_dvbc = ConfigSelection(default="-2", choices=dvbc_nims)
-	config.usage.frontend_priority_atsc = ConfigSelection(default="-2", choices=list(atsc_nims))
-	atsc_nims.insert(1, ("-1", _("auto")))
-	config.usage.recording_frontend_priority_atsc = ConfigSelection(default="-2", choices=atsc_nims)
-
-	SystemInfo["DVB-S_priority_tuner_available"] = len(dvbs_nims) > 3 and any(len(i) > 2 for i in (dvbt_nims, dvbc_nims, atsc_nims))
-	SystemInfo["DVB-T_priority_tuner_available"] = len(dvbt_nims) > 3 and any(len(i) > 2 for i in (dvbs_nims, dvbc_nims, atsc_nims))
-	SystemInfo["DVB-C_priority_tuner_available"] = len(dvbc_nims) > 3 and any(len(i) > 2 for i in (dvbs_nims, dvbt_nims, atsc_nims))
-	SystemInfo["ATSC_priority_tuner_available"] = len(atsc_nims) > 3 and any(len(i) > 2 for i in (dvbs_nims, dvbc_nims, dvbt_nims))
+	preferredTunerChoicesUpdate()
 
 	config.misc.disable_background_scan = ConfigYesNo(default=False)
 	config.misc.use_ci_assignment = ConfigYesNo(default=False)
@@ -463,6 +431,11 @@ def InitUsageConfig():
 		eEPGCache.getInstance().setEpgHistorySeconds(config.epg.histminutes.getValue() * 60)
 	config.epg.histminutes.addNotifier(EpgHistorySecondsChanged)
 
+	choicelist = [("newline", _("new line")), ("2newlines", _("2 new lines")), ("space", _("space")), ("dot", " . "), ("dash", " - "), ("asterisk", " * "), ("nothing", _("nothing"))]
+	config.epg.fulldescription_separator = ConfigSelection(default="2newlines", choices=choicelist)
+	choicelist = [("no", _("no")), ("nothing", _("omit")), ("space", _("space")), ("dot", ". "), ("dash", " - "), ("asterisk", " * "), ("hashtag", " # ")]
+	config.epg.replace_newlines = ConfigSelection(default="no", choices=choicelist)
+
 	def setHDDStandby(configElement):
 		for hdd in harddiskmanager.HDDList():
 			hdd[1].setIdleTime(int(configElement.value))
@@ -474,7 +447,10 @@ def InitUsageConfig():
 		config.usage.output_12V.addNotifier(set12VOutput, immediate_feedback=False)
 
 	config.usage.keymap = ConfigText(default=eEnv.resolve("${datadir}/enigma2/keymap.xml"))
-	config.usage.keytrans = ConfigText(default=eEnv.resolve("${datadir}/enigma2/keytranslation.xml"))
+	keytranslation = eEnv.resolve("${sysconfdir}/enigma2/keytranslation.xml")
+	if not os.path.exists(keytranslation):
+		keytranslation = eEnv.resolve("${datadir}/enigma2/keytranslation.xml")
+	config.usage.keytrans = ConfigText(default=keytranslation)
 	config.usage.alternative_imagefeed = ConfigText(default="", fixed_size=False)
 
 	config.seek = ConfigSubsection()
@@ -580,15 +556,15 @@ def InitUsageConfig():
 		def setHaveColorspace(configElement):
 			open(SystemInfo["HasColorspace"], "w").write(configElement.value)
 		if SystemInfo["HasColorspaceSimple"]:
-			config.av.hdmicolorspace = ConfigSelection(default="Edid(Auto)", choices={"Edid(Auto)": _("Auto"), "Hdmi_Rgb": _("RGB"), "444": _("YCbCr444"), "422": _("YCbCr422"), "420": _("YCbCr420")})
+			config.av.hdmicolorspace = ConfigSelection(default="Edid(Auto)", choices={"Edid(Auto)": _("auto"), "Hdmi_Rgb": "RGB", "444": "YCbCr 4:4:4", "422": "YCbCr 4:2:2", "420": "YCbCr 4:2:0"})
 		else:
-			config.av.hdmicolorspace = ConfigSelection(default="auto", choices={"auto": _("auto"), "rgb": _("rgb"), "420": _("420"), "422": _("422"), "444": _("444")})
+			config.av.hdmicolorspace = ConfigSelection(default="auto", choices={"auto": _("auto"), "rgb": "RGB", "420": "4:2:0", "422": "4:2:2", "444": "4:4:4"})
 		config.av.hdmicolorspace.addNotifier(setHaveColorspace)
 
 	if SystemInfo["HasColordepth"]:
 		def setHaveColordepth(configElement):
 			open(SystemInfo["HasColordepth"], "w").write(configElement.value)
-		config.av.hdmicolordepth = ConfigSelection(default="auto", choices={"auto": _("Auto"), "8bit": _("8bit"), "10bit": _("10bit"), "12bit": _("12bit")})
+		config.av.hdmicolordepth = ConfigSelection(default="auto", choices={"auto": _("auto"), "8bit": "8bit", "10bit": "10bit", "12bit": "12bit"})
 		config.av.hdmicolordepth.addNotifier(setHaveColordepth)
 
 	if SystemInfo["HasHDMIpreemphasis"]:
@@ -600,13 +576,13 @@ def InitUsageConfig():
 	if SystemInfo["HasColorimetry"]:
 		def setColorimetry(configElement):
 			open(SystemInfo["HasColorimetry"], "w").write(configElement.value)
-		config.av.hdmicolorimetry = ConfigSelection(default="auto", choices=[("auto", _("Auto")), ("bt2020ncl", _("BT 2020 NCL")), ("bt2020cl", _("BT 2020 CL")), ("bt709", _("BT 709"))])
+		config.av.hdmicolorimetry = ConfigSelection(default="auto", choices=[("auto", _("auto")), ("bt2020ncl", "BT 2020 NCL"), ("bt2020cl", "BT 2020 CL"), ("bt709", "BT 709")])
 		config.av.hdmicolorimetry.addNotifier(setColorimetry)
 
 	if SystemInfo["HasHdrType"]:
 		def setHdmiHdrType(configElement):
 			open(SystemInfo["HasHdrType"], "w").write(configElement.value)
-		config.av.hdmihdrtype = ConfigSelection(default="auto", choices={"auto": _("Auto"), "none": _("SDR"), "hdr10": _("HDR10"), "hlg": _("HLG"), "dolby": _("Dolby")})
+		config.av.hdmihdrtype = ConfigSelection(default="auto", choices={"auto": _("auto"), "none": "SDR", "hdr10": "HDR10", "hlg": "HLG", "dolby": "Dolby Vision"})
 		config.av.hdmihdrtype.addNotifier(setHdmiHdrType)
 
 	if SystemInfo["HDRSupport"]:
@@ -689,7 +665,7 @@ def InitUsageConfig():
 	config.autolanguage = ConfigSubsection()
 	audio_language_choices = [
 		("", _("None")),
-		("orj dos ory org esl qaa und mis mul ORY ORJ Audio_ORJ", _("Original")),
+		(originalAudioTracks, _("Original")),
 		("ara", _("Arabic")),
 		("eus baq", _("Basque")),
 		("bul", _("Bulgarian")),
@@ -699,7 +675,7 @@ def InitUsageConfig():
 		("ces cze", _("Czech")),
 		("dan", _("Danish")),
 		("dut ndl nld", _("Dutch")),
-		("eng qaa", _("English")),
+		("eng", _("English")),
 		("est", _("Estonian")),
 		("fin", _("Finnish")),
 		("fra fre", _("French")),
@@ -725,7 +701,8 @@ def InitUsageConfig():
 		("swe", _("Swedish")),
 		("tha", _("Thai")),
 		("tur Audio_TUR", _("Turkish")),
-		("ukr Ukr", _("Ukrainian"))]
+		("ukr Ukr", _("Ukrainian")),
+		(visuallyImpairedCommentary, _("Audio description for the visually impaired"))]
 
 	epg_language_choices = audio_language_choices[:1] + audio_language_choices[2:]
 
@@ -863,3 +840,99 @@ def preferredInstantRecordPath():
 
 def defaultMoviePath():
 	return defaultRecordingLocation(config.usage.default_path.value)
+
+
+def showrotorpositionChoicesUpdate(update=False):
+	choiceslist = [("no", _("no")), ("yes", _("yes")), ("withtext", _("with text")), ("tunername", _("with tuner name"))]
+	count = 0
+	for x in nimmanager.nim_slots:
+		if nimmanager.getRotorSatListForNim(x.slot, only_first=True):
+			choiceslist.append((str(x.slot), x.getSlotName() + _(" (auto detection)")))
+			count += 1
+	if count > 1:
+		choiceslist.append(("all", _("all tuners") + _(" (auto detection)")))
+		choiceslist.remove(("tunername", _("with tuner name")))
+	if not update:
+		config.misc.showrotorposition = ConfigSelection(default="no", choices=choiceslist)
+	else:
+		config.misc.showrotorposition.setChoices(choiceslist, "no")
+	SystemInfo["isRotorTuner"] = count > 0
+
+def preferredTunerChoicesUpdate(update=False):
+	dvbs_nims = [("-2", _("disabled"))]
+	dvbt_nims = [("-2", _("disabled"))]
+	dvbc_nims = [("-2", _("disabled"))]
+	atsc_nims = [("-2", _("disabled"))]
+
+	nims = [("-1", _("auto"))]
+	for slot in nimmanager.nim_slots:
+		if hasattr(slot.config, "configMode") and slot.config.configMode.value == "nothing":
+			continue
+		if slot.isCompatible("DVB-S"):
+			dvbs_nims.append((str(slot.slot), slot.getSlotName()))
+		elif slot.isCompatible("DVB-T"):
+			dvbt_nims.append((str(slot.slot), slot.getSlotName()))
+		elif slot.isCompatible("DVB-C"):
+			dvbc_nims.append((str(slot.slot), slot.getSlotName()))
+		elif slot.isCompatible("ATSC"):
+			atsc_nims.append((str(slot.slot), slot.getSlotName()))
+		nims.append((str(slot.slot), slot.getSlotName()))
+
+	if not update:
+		config.usage.frontend_priority = ConfigSelection(default="-1", choices=list(nims))
+	else:
+		config.usage.frontend_priority.setChoices(list(nims), "-1")
+	nims.insert(0, ("-2", _("disabled")))
+	if not update:
+		config.usage.recording_frontend_priority = ConfigSelection(default="-2", choices=nims)
+	else:
+		config.usage.recording_frontend_priority.setChoices(nims, "-2")
+	if not update:
+		config.usage.frontend_priority_dvbs = ConfigSelection(default="-2", choices=list(dvbs_nims))
+	else:
+		config.usage.frontend_priority_dvbs.setChoices(list(dvbs_nims), "-2")
+	dvbs_nims.insert(1, ("-1", _("auto")))
+	if not update:
+		config.usage.recording_frontend_priority_dvbs = ConfigSelection(default="-2", choices=dvbs_nims)
+	else:
+		config.usage.recording_frontend_priority_dvbs.setChoices(dvbs_nims, "-2")
+	if not update:
+		config.usage.frontend_priority_dvbt = ConfigSelection(default="-2", choices=list(dvbt_nims))
+	else:
+		config.usage.frontend_priority_dvbt.setChoices(list(dvbt_nims), "-2")
+	dvbt_nims.insert(1, ("-1", _("auto")))
+	if not update:
+		config.usage.recording_frontend_priority_dvbt = ConfigSelection(default="-2", choices=dvbt_nims)
+	else:
+		config.usage.recording_frontend_priority_dvbt.setChoices(dvbt_nims, "-2")
+	if not update:
+		config.usage.frontend_priority_dvbc = ConfigSelection(default="-2", choices=list(dvbc_nims))
+	else:
+		config.usage.frontend_priority_dvbc.setChoices(list(dvbc_nims), "-2")
+	dvbc_nims.insert(1, ("-1", _("auto")))
+	if not update:
+		config.usage.recording_frontend_priority_dvbc = ConfigSelection(default="-2", choices=dvbc_nims)
+	else:
+		config.usage.recording_frontend_priority_dvbc.setChoices(dvbc_nims, "-2")
+	if not update:
+		config.usage.frontend_priority_atsc = ConfigSelection(default="-2", choices=list(atsc_nims))
+	else:
+		config.usage.frontend_priority_atsc.setChoices(list(atsc_nims), "-2")
+	atsc_nims.insert(1, ("-1", _("auto")))
+	if not update:
+		config.usage.recording_frontend_priority_atsc = ConfigSelection(default="-2", choices=atsc_nims)
+	else:
+		config.usage.recording_frontend_priority_atsc.setChoices(atsc_nims, "-2")
+
+	SystemInfo["DVB-S_priority_tuner_available"] = len(dvbs_nims) > 3 and any(len(i) > 2 for i in (dvbt_nims, dvbc_nims, atsc_nims))
+	SystemInfo["DVB-T_priority_tuner_available"] = len(dvbt_nims) > 3 and any(len(i) > 2 for i in (dvbs_nims, dvbc_nims, atsc_nims))
+	SystemInfo["DVB-C_priority_tuner_available"] = len(dvbc_nims) > 3 and any(len(i) > 2 for i in (dvbs_nims, dvbt_nims, atsc_nims))
+	SystemInfo["ATSC_priority_tuner_available"] = len(atsc_nims) > 3 and any(len(i) > 2 for i in (dvbs_nims, dvbc_nims, dvbt_nims))
+
+def dropEPGNewLines(text):
+	if config.epg.replace_newlines.value != "no":
+		text = text.replace('\x0a', replaceEPGSeparator(config.epg.replace_newlines.value))
+	return text
+
+def replaceEPGSeparator(code):
+	return {"newline": "\n", "2newlines": "\n\n", "space": " ", "dash": " - ", "dot": " . ", "asterisk": " * ", "hashtag": " # ", "nothing": ""}.get(code)

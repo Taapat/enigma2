@@ -22,6 +22,7 @@ import time
 import zipfile
 import shutil
 import tempfile
+import struct
 
 from enigma import eEPGCache
 
@@ -33,16 +34,14 @@ def checkimagefiles(files):
 class SelectImage(Screen):
 	def __init__(self, session, *args):
 		Screen.__init__(self, session)
-		self.session = session
 		self.jsonlist = {}
 		self.imagesList = {}
 		self.setIndex = 0
 		self.expanded = []
-		self.setTitle(_("Multiboot image selector"))
+		self.setTitle(_("Select image"))
 		self["key_red"] = StaticText(_("Cancel"))
 		self["key_green"] = StaticText()
 		self["key_yellow"] = StaticText()
-		self["key_blue"] = StaticText()
 		self["description"] = StaticText()
 		self["list"] = ChoiceList(list=[ChoiceEntryComponent('', ((_("Retrieving image list - Please wait...")), "Waiter"))])
 
@@ -91,17 +90,16 @@ class SelectImage(Screen):
 			self.imagesList = dict(self.jsonlist)
 
 			for media in ['/media/%s' % x for x in os.listdir('/media')] + (['/media/net/%s' % x for x in os.listdir('/media/net')] if os.path.isdir('/media/net') else []):
-				if not(SystemInfo['HasMMC'] and "/mmc" in media) and os.path.isdir(media):
-					try:
-						getImages(media, [os.path.join(media, x) for x in os.listdir(media) if os.path.splitext(x)[1] == ".zip" and model in x])
-						if "downloaded_images" in os.listdir(media):
-							media = os.path.join(media, "downloaded_images")
-							if os.path.isdir(media) and not os.path.islink(media) and not os.path.ismount(media):
-								getImages(media, [os.path.join(media, x) for x in os.listdir(media) if os.path.splitext(x)[1] == ".zip" and model in x])
-								for dir in [dir for dir in [os.path.join(media, dir) for dir in os.listdir(media)] if os.path.isdir(dir) and os.path.splitext(dir)[1] == ".unzipped"]:
-									shutil.rmtree(dir)
-					except:
-						pass
+				try:
+					getImages(media, [os.path.join(media, x) for x in os.listdir(media) if os.path.splitext(x)[1] == ".zip" and model in x])
+					if "downloaded_images" in os.listdir(media):
+						media = os.path.join(media, "downloaded_images")
+						if os.path.isdir(media) and not os.path.islink(media) and not os.path.ismount(media):
+							getImages(media, [os.path.join(media, x) for x in os.listdir(media) if os.path.splitext(x)[1] == ".zip" and model in x])
+							for dir in [dir for dir in [os.path.join(media, dir) for dir in os.listdir(media)] if os.path.isdir(dir) and os.path.splitext(dir)[1] == ".unzipped"]:
+								shutil.rmtree(dir)
+				except:
+					pass
 
 		list = []
 		for catagorie in reversed(sorted(self.imagesList.keys())):
@@ -407,9 +405,8 @@ class FlashImage(Screen):
 
 class MultibootSelection(SelectImage):
 	def __init__(self, session, *args):
-		Screen.__init__(self, session)
-		self.skinName = "SelectImage"
-		self.session = session
+		SelectImage.__init__(self, session)
+		self.skinName = ["MultibootSelection", "SelectImage"]
 		self.expanded = []
 		self.tmp_dir = None
 		self.setTitle(_("Multiboot image selector"))
@@ -504,7 +501,13 @@ class MultibootSelection(SelectImage):
 					startupfile = os.path.join(self.tmp_dir, "%s_%s" % (SystemInfo["canMultiBoot"][slot[0]]['startupfile'].rsplit('_', 1)[0], slot[1]))
 				else:
 					startupfile = os.path.join(self.tmp_dir, "%s" % SystemInfo["canMultiBoot"][slot[0]]['startupfile'])
-				shutil.copyfile(startupfile, os.path.join(self.tmp_dir, "STARTUP"))
+				if SystemInfo["canDualBoot"]:
+					with open('/dev/block/by-name/flag', 'wb') as f:
+						f.write(struct.pack("B", int(slot[0])))
+					startupfile = os.path.join("/boot", "%s" % SystemInfo["canMultiBoot"][slot[0]]['startupfile'])
+					shutil.copyfile(startupfile, os.path.join("/boot", "STARTUP"))
+				else:
+					shutil.copyfile(startupfile, os.path.join(self.tmp_dir, "STARTUP"))
 			else:
 				model = HardwareInfo().get_machine_name()
 				if slot[1] == 1:
